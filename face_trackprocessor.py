@@ -160,9 +160,9 @@ if __name__ == "__main__":
 
         # For debugging purposes, create a frame with the estimated screen position.
         if avg_direction is not None:
-            screen_frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+            screen_frame = np.zeros((1080//2, 1920//2, 3), dtype=np.uint8)
             if screen_x is not None and screen_y is not None:
-                cv2.circle(screen_frame, (int(screen_x), int(screen_y)), 10, (0, 255, 0), -1)
+                cv2.circle(screen_frame, (int(screen_x//2), int(screen_y//2)), 10, (0, 255, 0), -1)
             cv2.imshow("Estimated Screen Position", screen_frame)
 
 
