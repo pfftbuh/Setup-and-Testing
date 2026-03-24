@@ -136,6 +136,7 @@ class FaceLandmarkerProcessor:
             else:
                 return frame, avg_direction == None
             
+<<<<<<< HEAD
 
 if __name__ == "__main__":
     processor = FaceLandmarkerProcessor()
@@ -175,3 +176,5 @@ if __name__ == "__main__":
 
     cap.release()
     cv2.destroyAllWindows()
+=======
+>>>>>>> 929b9bee6005a1d360a6ad3a87de0fbc4cbab4e7
