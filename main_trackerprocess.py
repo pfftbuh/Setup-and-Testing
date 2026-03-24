@@ -2,19 +2,29 @@ import cv2
 import numpy as np
 import face_trackprocessor as ftp
 import face_axisprocessor as fap
+import eye_trackprocessor as etp
 
 
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
+eye_processor = etp.EyeLandmarkerProcessor()
 cap = cv2.VideoCapture(0)
+
+# DEBUGGING PURPOSES: This loop processes the video feed from the webcam, detects face and eye landmarks, 
+# estimates head pose, and displays the results in real-time. 
+# It also allows for calibration of the head pose estimation by pressing the 'c' key. 
+# The estimated screen position is visualized on a separate frame for debugging purposes. 
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
+    
+    frame = cv2.resize(frame, (1280, 720))
 
-    results = processor.process_frame(frame)
-    output_frame, avg_direction = processor._draw_landmarks(frame, results)
+    face_frame = frame.copy()
+    results = processor.process_frame(face_frame)
+    output_frame, avg_direction = processor._draw_landmarks(face_frame, results)
     if avg_direction is not None:
         yaw, pitch = axis_processor.process(avg_direction)
         screen_x, screen_y = axis_processor.get_estimated_screen_position()
@@ -23,6 +33,13 @@ while True:
             cv2.putText(output_frame, f"Pitch: {pitch:.2f} deg", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     cv2.imshow("Face Landmarks", output_frame)
+
+    # Draw eye landmarks and place on a separate frame for debugging purposes.
+    eye_frame = frame.copy()
+    eye_results = eye_processor.process_frame(eye_frame)
+    eye_frame, _ = eye_processor._draw_landmarks(eye_frame, eye_results)
+    cv2.imshow("Eye Landmarks", eye_frame)
+
 
     # Frame is for debugging purposes, create a frame with the estimated screen position.
     if avg_direction is not None:

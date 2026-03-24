@@ -6,7 +6,6 @@ from mediapipe.tasks.python import vision # type: ignore
 import numpy as np # type: ignore
 from collections import deque
 import face_distanceprocessor as fdp
-import face_axisprocessor as fap
 
 class FaceLandmarkerProcessor:
         def __init__(self, model_path: str = "face_landmarker.task"):
