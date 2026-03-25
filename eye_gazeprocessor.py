@@ -1,8 +1,10 @@
-# This is where the raw eye gaze data is processed. 
-# It calculates the position of the pupil relative to the eye bounding box, 
-# which is used to estimate the gaze direction. 
-# This module returns a list of iris height and pupil position data for both eyes, 
-# which is then used by the eye_gazetoscreenposprocessor.
+# Where calculations of eye gaze direction and screen position estimation are performed.
+# This file processes the eye landmarks detected by MediaPipe 
+# and calculates the estimated gaze direction and screen position based on the eye landmarks. 
+# It will use the eye_trackprocessor to get the eye landmarks, 
+# and then apply calculations to estimate where on the screen the user is looking.
+
+# Calibration is performed with 5 stages: left edge, right edge, top edge, bottom edge, and center.
 
 import cv2
 import numpy as np
@@ -11,11 +13,16 @@ import mediapipe as mp
 
 class EyeGazeProcessor:
     def __init__(self):
-        self.iris_data = {
-            'left_eye_boxheight': 0.0,
-            'right_eye_boxheight': 0.0,
-            'left_iris_position': (0.0, 0.0),
-            'right_iris_position': (0.0, 0.0)
+        
+        self.raw_eye_data = {
+            'left': {
+                'iris_boxgheight': None,
+                'pupil': None
+            },
+            'right': {
+                'iris_boxheight': None,
+                'pupil': None
+            }
         }
         
         # iris tracking indices
@@ -28,8 +35,8 @@ class EyeGazeProcessor:
         self.right_iris_box_indices = [387, 380]
         
         self.pupil_points = {
-                'left': (0,0),
-                'right': (0,0)
+                'left': None,
+                'right': None
         }
     
     def _calculate_eyelid_height(self, iris_box):
@@ -41,67 +48,39 @@ class EyeGazeProcessor:
     
     # This calculates the position of the iris center relative to the eye bounding box,
     # which is used to estimate the gaze direction.
-    def _calculate_iris_position(self, main_face_landmarks):
+    def _calculate_iris_position(self, eye_data):
         
-        left_iris_box = []
-        right_iris_box = []
-        for face_landmarks in main_face_landmarks:
-            
-            # Calculate pupil position.
-            for idx in self.pupil_indices:
-                landmark = face_landmarks[idx]
-                if idx == self.pupil_indices[0]:  # right eye
-                    self.pupil_points['right'] = (landmark.x, landmark.y)
-                else:  # left eye
-                    self.pupil_points['left'] = (landmark.x, landmark.y)
-            
-            # Calculate iris box height for left eye.
-            for idx in self.left_iris_box_indices:
-                landmark = face_landmarks[idx]
-                left_iris_box.append((landmark.x, landmark.y))
-            
-            # Calculate iris box height for right eye.
-            for idx in self.right_iris_box_indices:
-                landmark = face_landmarks[idx]
-                right_iris_box.append((landmark.x, landmark.y))
-                
-            left_eyelid_height = self._calculate_eyelid_height(left_iris_box)
-            left_iris_box_left = left_iris_box[0][0]
-            left_iris_box_right = left_iris_box[1][0]
-            
-            right_eyelid_height = self._calculate_eyelid_height(right_iris_box)
-            right_iris_box_left = right_iris_box[0][0]
-            right_iris_box_right = right_iris_box[1][0]
-            
-        # Calculate the position of the left pupil relative to the left eye bounding box.
-        if self.pupil_points['left'] is not None:
-            left_pupil_x = self.pupil_points['left'][0]
-            left_pupil_y = self.pupil_points['left'][1]
-            left_iris_position_x = (left_pupil_x - left_iris_box_left) / (left_iris_box_right - left_iris_box_left)
-            left_iris_position_y = (left_pupil_y - left_iris_box[0][1]) / left_eyelid_height
+        left_iris_box = eye_data['left']
+        right_iris_box = eye_data['right']
+        pupil_left = eye_data['pupil_left']
+        pupil_right = eye_data['pupil_right']
+        
+        left_eyelid_height = self._calculate_eyelid_height(left_iris_box)
+        right_eyelid_height = self._calculate_eyelid_height(right_iris_box)
+        
+        # Calculate the position of the pupil relative to the eye bounding box for both eyes.
+        if pupil_left is not None and left_iris_box is not None:
+            left_iris_center_x = (left_iris_box[0][0] + left_iris_box[1][0]) / 2
+            left_iris_center_y = (left_iris_box[0][1] + left_iris_box[1][1]) / 2
+            left_pupil_offset_x = pupil_left[0] - left_iris_center_x
+            left_pupil_offset_y = pupil_left[1] - left_iris_center_y
         else:
-            left_iris_position_x = None
-            left_iris_position_y = None
-
-        # Calculate the position of the right pupil relative to the right eye bounding box.
-        if self.pupil_points['right'] is not None:
-            right_pupil_x = self.pupil_points['right'][0]
-            right_pupil_y = self.pupil_points['right'][1]
-            right_iris_position_x = (right_pupil_x - right_iris_box_left) / (right_iris_box_right - right_iris_box_left)
-            right_iris_position_y = (right_pupil_y - right_iris_box[0][1]) / right_eyelid_height
+            left_pupil_offset_x, left_pupil_offset_y = None, None   
+            
+        if pupil_right is not None and right_iris_box is not None:
+            right_iris_center_x = (right_iris_box[0][0] + right_iris_box[1][0]) / 2
+            right_iris_center_y = (right_iris_box[0][1] + right_iris_box[1][1]) / 2
+            right_pupil_offset_x = pupil_right[0] - right_iris_center_x
+            right_pupil_offset_y = pupil_right[1] - right_iris_center_y
         else:
-            right_iris_position_x = None    
-            right_iris_position_y = None
-            
-        self.iris_data['left_eye_boxheight'] = left_eyelid_height
-        self.iris_data['right_eye_boxheight'] = right_eyelid_height
-        self.iris_data['left_iris_position'] = (left_iris_position_x, left_iris_position_y)
-        self.iris_data['right_iris_position'] = (right_iris_position_x, right_iris_position_y)
+            right_pupil_offset_x, right_pupil_offset_y = None, None
         
-        return self.iris_data
-            
+        self.raw_eye_data['left']['iris_boxheight'] = left_eyelid_height
+        self.raw_eye_data['right']['iris_boxheight'] = right_eyelid_height
+        self.raw_eye_data['left']['pupil'] = (left_pupil_offset_x, left_pupil_offset_y)
+        self.raw_eye_data['right']['pupil'] = (right_pupil_offset_x, right_pupil_offset_y)
         
-
+        return self.raw_eye_data
             
                     
         

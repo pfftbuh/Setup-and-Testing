@@ -21,6 +21,7 @@ while True:
         break
     
     frame = cv2.resize(frame, (1280, 720))
+    frame = cv2.flip(frame, 1)  # Mirror the frame for a more natural webcam experience
 
     face_frame = frame.copy()
     results = processor.process_frame(face_frame)

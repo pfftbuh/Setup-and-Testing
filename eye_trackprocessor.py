@@ -64,6 +64,7 @@ class EyeLandmarkerProcessor:
     
     def _draw_landmarks(self, frame, results):
         
+
         all_eye_points = []
         pupil_points = {
                 'left': None,
@@ -76,8 +77,6 @@ class EyeLandmarkerProcessor:
             return frame, None
         
         elif results.face_landmarks:
-            
-            iris_data = self.gaze_processor._calculate_iris_position(results.face_landmarks)
 
             h, w = frame.shape[:2]
             for face_landmarks in results.face_landmarks:
@@ -105,9 +104,9 @@ class EyeLandmarkerProcessor:
             # Draw pupil landmarks
             for idx in self.pupil_indices:
                 landmark = face_landmarks[idx]
-                if idx == 468:  # left pupil
+                if idx == "468":  # left pupil
                     pupil_points['left'] = (landmark.x * w, landmark.y * h)
-                elif idx == 473:  # right pupil
+                elif idx == "473":  # right pupil
                     pupil_points['right'] = (landmark.x * w, landmark.y * h)
                 # Draw a circle for the pupil center points for better visibility
                 cv2.circle(frame, (int(landmark.x * w), int(landmark.y * h)), 1, (0, 0, 255), -1)
@@ -118,54 +117,54 @@ class EyeLandmarkerProcessor:
                 landmark = face_landmarks[idx]
                 left_iris_box.append((landmark.x * w, landmark.y * h))
                 cv2.circle(frame, (int(landmark.x * w), int(landmark.y * h)), 1, (255, 0, 0), -1)
-           
+            
+            # Draw bounding box on left iris box indices
+            cv2.rectangle(frame, (int(left_iris_box[0][0]), int(left_iris_box[0][1])), 
+                        (int(left_iris_box[1][0]), int(left_iris_box[1][1])), (255, 0, 0), 1)
+            
+            # Draw a intersecting lines across the middle of the left iris box for debugging purposes
+            mid_left_iris_y = (left_iris_box[0][1] + left_iris_box[1][1]) / 2
+            mid_left_iris_x = (left_iris_box[0][0] + left_iris_box[1][0]) / 2
+            # Draw intersecting lines across the middle of the left iris box for debugging purposes
+            cv2.line(frame, (int(left_iris_box[0][0]), int(mid_left_iris_y)), (int(left_iris_box[1][0]), int(mid_left_iris_y)), (255, 0, 0), 1)
+            cv2.line(frame, (int(mid_left_iris_x), int(left_iris_box[0][1])), (int(mid_left_iris_x), int(left_iris_box[1][1])), (255, 0, 0), 1)
+
             # Draw circles on right iris box indices
             right_iris_box = []
             for idx in self.right_iris_box_indices:
                 landmark = face_landmarks[idx]
                 right_iris_box.append((landmark.x * w, landmark.y * h))
                 cv2.circle(frame, (int(landmark.x * w), int(landmark.y * h)), 1, (255, 0, 0), -1)
-                
-            # Draw bounding box on left iris box indices
-            cv2.rectangle(frame, (int(left_iris_box[0][0]), int(left_iris_box[0][1])), 
-                        (int(left_iris_box[1][0]), int(left_iris_box[1][1])), (255, 0, 0), 1)
-            
-            # Draw height of left iris box for debugging purposes
-            cv2.putText(frame, f"Left Eye Box Height: {iris_data['left_eye_boxheight']:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 1)
-            # Draw height of right iris box for debugging purposes
-            cv2.putText(frame, f"Right Eye Box Height: {iris_data['right_eye_boxheight']:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 1)
-            
-            # Draw relative position of the pupil within the eye box for debugging purposes
-            cv2.putText(frame, f"Left Iris Position: ({iris_data['left_iris_position'][0]:.2f}, {iris_data['left_iris_position'][1]:.2f})", 
-                        (0, 0), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 1)
-            cv2.putText(frame, f"Right Iris Position: ({iris_data['right_iris_position'][0]:.2f}, {iris_data['right_iris_position'][1]:.2f})", 
-                        (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 1)
-            
-            # Draw a intersecting lines across the middle of the left iris box for debugging purposes
-            mid_left_iris_y = (left_iris_box[0][1] + left_iris_box[1][1]) / 2
-            mid_left_iris_x = (left_iris_box[0][0] + left_iris_box[1][0]) / 2
-            
-            # Draw intersecting lines across the middle of the left iris box for debugging purposes
-            cv2.line(frame, (int(left_iris_box[0][0]), int(mid_left_iris_y)), (int(left_iris_box[1][0]), int(mid_left_iris_y)), (255, 0, 0), 1)
-            cv2.line(frame, (int(mid_left_iris_x), int(left_iris_box[0][1])), (int(mid_left_iris_x), int(left_iris_box[1][1])), (255, 0, 0), 1)
-
-            
             
             # Draw bounding box on right iris box indices
             cv2.rectangle(frame, (int(right_iris_box[0][0]), int(right_iris_box[0][1])), 
                         (int(right_iris_box[1][0]), int(right_iris_box[1][1])), (255, 0, 0), 1)    
-
+            
             # Calculate the midpoint of the right iris box for debugging purposes
             mid_right_iris_y = (right_iris_box[0][1] + right_iris_box[1][1]) / 2
             mid_right_iris_x = (right_iris_box[0][0] + right_iris_box[1][0]) / 2
             # Draw intersecting lines across the middle of the right iris box for debugging purposes
             cv2.line(frame, (int(right_iris_box[0][0]), int(mid_right_iris_y)), (int(right_iris_box[1][0]), int(mid_right_iris_y)), (255, 0, 0), 1)
             cv2.line(frame, (int(mid_right_iris_x), int(right_iris_box[0][1])), (int(mid_right_iris_x), int(right_iris_box[1][1])), (255, 0, 0), 1)
+            
+            eye_data = {
+                'left': left_iris_box,
+                'right': right_iris_box,
+                'pupil_left': pupil_points['left'],
+                'pupil_right': pupil_points['right']
+            }
+            
+            raw_eye_data = self.gaze_processor._calculate_iris_position(eye_data)
                 
             x_min, x_max, y_min, y_max = self.get_eye_bbox(all_eye_points, w, h)
 
             eye_frame = frame[y_min:y_max, x_min:x_max].copy()
+            
+            # For debugging purposes, display the calculated eyelid heights on the frame.
+            cv2.putText(eye_frame, f"Left Eyelid Height: {raw_eye_data['left']['iris_boxheight']:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 0), 1)
+            cv2.putText(eye_frame, f"Right Eyelid Height: {raw_eye_data['right']['iris_boxheight']:.2f}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 165, 0), 1)
 
+            
             # Resize the eye frame to a fixed size for better visualization
             eye_frame = cv2.resize(eye_frame, (450, 200))
 
