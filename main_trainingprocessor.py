@@ -68,10 +68,11 @@ while True:
     cv2.imshow("Calibration Points", points_frame)
     # ===================== END OF 9 POINT CALIBRATION =================
     
-    if cv2.waitKey(1) & 0xFF == ord('c'):
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('c'):
         if avg_direction is not None:
             axis_processor.calibrate(avg_direction)
-    if cv2.waitKey(1) & 0xFF == ord('t'):
+    if key == ord('t'):
         # Capture cursor position
         cursor_x, cursor_y = pyautogui.position()
         print(f"Cursor position: ({cursor_x}, {cursor_y})")
@@ -86,8 +87,10 @@ while True:
             eye_gaze_data = [
                 round(raw_eye_data['left']['iris_boxheight'], 4),
                 round(raw_eye_data['right']['iris_boxheight'], 4),
-                round(raw_eye_data['left']['pupil'], 4),
-                round(raw_eye_data['right']['pupil'], 4)
+                round(raw_eye_data['left']['pupil'][0], 4),
+                round(raw_eye_data['right']['pupil'][0], 4),
+                round(raw_eye_data['left']['pupil'][1], 4),
+                round(raw_eye_data['right']['pupil'][1], 4)
                 ]
             data_point = {
                 'yaw': yaw,
@@ -99,6 +102,6 @@ while True:
                 'cursor_y': cursor_y_normalized
             }
             print(f"Collected data point: {data_point}")
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('q'):
         break
     
