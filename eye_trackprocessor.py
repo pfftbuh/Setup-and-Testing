@@ -1,3 +1,8 @@
+# eye_trackprocessor.py
+# This file contains the EyeLandmarkerProcessor class, which uses MediaPipe to detect eye landmarks in video frames. 
+# It processes the detected landmarks to calculate the position of the iris and pupil, and estimates the gaze direction based on the position of the pupil relative to the eye bounding box.
+# The processor also draws the detected landmarks and bounding boxes on the frame for visualization and debugging purposes
+
 import numpy as np
 import cv2
 import mediapipe as mp
@@ -104,9 +109,9 @@ class EyeLandmarkerProcessor:
             # Draw pupil landmarks
             for idx in self.pupil_indices:
                 landmark = face_landmarks[idx]
-                if idx == "468":  # left pupil
+                if idx == 468:  # left pupil
                     pupil_points['left'] = (landmark.x * w, landmark.y * h)
-                elif idx == "473":  # right pupil
+                elif idx == 473:  # right pupil
                     pupil_points['right'] = (landmark.x * w, landmark.y * h)
                 # Draw a circle for the pupil center points for better visibility
                 cv2.circle(frame, (int(landmark.x * w), int(landmark.y * h)), 1, (0, 0, 255), -1)
@@ -160,12 +165,13 @@ class EyeLandmarkerProcessor:
 
             eye_frame = frame[y_min:y_max, x_min:x_max].copy()
             
-            # For debugging purposes, display the calculated eyelid heights on the frame.
+            # For debugging purposes, display the calculated eyelid heights and pupil offsets on the frame.
             cv2.putText(eye_frame, f"Left Eyelid Height: {raw_eye_data['left']['iris_boxheight']:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 0), 1)
             cv2.putText(eye_frame, f"Right Eyelid Height: {raw_eye_data['right']['iris_boxheight']:.2f}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 165, 0), 1)
+            cv2.putText(eye_frame, f"Left Pupil Offset: ({raw_eye_data['left']['pupil'][0]:.2f}, {raw_eye_data['left']['pupil'][1]:.2f})", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
+            cv2.putText(eye_frame, f"Right Pupil Offset: ({raw_eye_data['right']['pupil'][0]:.2f}, {raw_eye_data['right']['pupil'][1]:.2f})", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
 
-            
             # Resize the eye frame to a fixed size for better visualization
             eye_frame = cv2.resize(eye_frame, (450, 200))
 
-            return eye_frame, None
+            return eye_frame, raw_eye_data

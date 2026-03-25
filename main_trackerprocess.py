@@ -4,7 +4,6 @@ import face_trackprocessor as ftp
 import face_axisprocessor as fap
 import eye_trackprocessor as etp
 
-
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
 eye_processor = etp.EyeLandmarkerProcessor()
@@ -23,6 +22,7 @@ while True:
     frame = cv2.resize(frame, (1280, 720))
     frame = cv2.flip(frame, 1)  # Mirror the frame for a more natural webcam experience
 
+    # ====================== FACE PROCESSING ======================
     face_frame = frame.copy()
     results = processor.process_frame(face_frame)
     output_frame, avg_direction = processor._draw_landmarks(face_frame, results)
@@ -34,20 +34,27 @@ while True:
             cv2.putText(output_frame, f"Pitch: {pitch:.2f} deg", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     cv2.imshow("Face Landmarks", output_frame)
-
-    # Draw eye landmarks and place on a separate frame for debugging purposes.
-    eye_frame = frame.copy()
-    eye_results = eye_processor.process_frame(eye_frame)
-    eye_frame, _ = eye_processor._draw_landmarks(eye_frame, eye_results)
-    cv2.imshow("Eye Landmarks", eye_frame)
-
-
+    # ===================== END OF FACE PROCESSING ======================
+    
+    # ===================== ESTIMATED SCREEN POSITION DEBUGGING =========
     # Frame is for debugging purposes, create a frame with the estimated screen position.
     if avg_direction is not None:
         screen_frame = np.zeros((1080//2, 1920//2, 3), dtype=np.uint8)
         if screen_x is not None and screen_y is not None:
             cv2.circle(screen_frame, (int(screen_x//2), int(screen_y//2)), 10, (0, 255, 0), -1)
         cv2.imshow("Estimated Screen Position", screen_frame)
+    
+    # ===================== END OF ESTIMATED SCREEN POSITION DEBUGGING =========
+    
+    # ====================== EYE PROCESSING ======================
+    # Draw eye landmarks and place on a separate frame for debugging purposes.
+    eye_frame = frame.copy()
+    eye_results = eye_processor.process_frame(eye_frame)
+    eye_frame, raw_eye_data = eye_processor._draw_landmarks(eye_frame, eye_results)
+    cv2.imshow("Eye Landmarks", eye_frame)
+    # ===================== END OF EYE PROCESSING =====================
+    
+   
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
@@ -55,6 +62,6 @@ while True:
     elif key == ord('c') and avg_direction is not None:
         axis_processor.calibrate(avg_direction)
         print("Calibrated! Current pose set as zero.")
-
+    
 cap.release()
 cv2.destroyAllWindows()
