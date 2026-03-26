@@ -3,11 +3,13 @@ import numpy as np
 import face_trackprocessor as ftp
 import face_axisprocessor as fap
 import eye_trackprocessor as etp
-import joblib
+import eye_calibrationprocessor as ecp
 
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
 eye_processor = etp.EyeLandmarkerProcessor()
+eye_calibrator = ecp.EyeCalibrationProcessor()
+
 cap = cv2.VideoCapture(0)
 
 # DEBUGGING PURPOSES: This loop processes the video feed from the webcam, detects face and eye landmarks, 
@@ -21,7 +23,6 @@ while True:
         break
     
     frame = cv2.resize(frame, (1280, 720))
-    frame = cv2.flip(frame, 1)  # Mirror the frame for a more natural webcam experience
 
     # ====================== FACE PROCESSING ======================
     face_frame = frame.copy()
@@ -59,9 +60,34 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
-    elif key == ord('c') and avg_direction is not None:
+    elif key == ord('c') and avg_direction is not None and raw_eye_data is not None:
         axis_processor.calibrate(avg_direction)
         print("Calibrated! Current pose set as zero.")
-    
+        
+        samples = []
+        eye_calibrator.sample_count = 30
+        # Collect 30 samples for each calibration position (center, up, down, left, right) to ensure stable calibration values.
+        while len(samples) < 30:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            eye_frame = frame.copy()
+            eye_results = eye_processor.process_frame(eye_frame)
+            eye_frame, raw_eye_data = eye_processor._draw_landmarks(eye_frame, eye_results)
+            
+            if raw_eye_data is not None:
+                samples.append(raw_eye_data)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        eye_calibrator.calibrate(samples)
+        
+        print(f"Calibration stage {eye_calibrator.calibration_stage} complete.")
+        eye_calibrator.next_stage()
+        
+
+
+
 cap.release()
 cv2.destroyAllWindows()
