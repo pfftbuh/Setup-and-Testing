@@ -1,3 +1,5 @@
+import json
+
 import cv2
 import numpy as np
 import face_trackprocessor as ftp
@@ -117,7 +119,11 @@ while True:
             print("Collected enough eye data samples for training!")
         
         # Create a JSON file with the collected eye data samples for training purposes.
-        file_creator.create_file(eye_data_list)
+        if file_creator.exists():
+            file_creator.append_to_file(eye_data_list)
+        else:
+            file_creator.create_file(eye_data_list)
+        eye_data_list = []  # Clear the list after saving to file.
 
     if key == ord('q'):
         break
