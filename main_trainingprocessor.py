@@ -109,7 +109,7 @@ while True:
                 'cursor_y': cursor_y_normalized
             }
             print(f"Collected data point: {data_point}")
-        while len(eye_data_list) < eye_data_samples:
+        if len(eye_data_list) < eye_data_samples:
             eye_data_list.append(data_point)
             if len(eye_data_list) % 10 == 0:
                 print(f"Collected {len(eye_data_list)}/{eye_data_samples} eye data samples.")
