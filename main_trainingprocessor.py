@@ -3,15 +3,19 @@ import numpy as np
 import face_trackprocessor as ftp
 import face_axisprocessor as fap
 import eye_trackprocessor as etp
+import file_creationprocessor as fcp
 import pyautogui
 
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
 eye_processor = etp.EyeLandmarkerProcessor()
+file_creator = fcp.FileCreationProcessor("eye_data.json")
 
 cap = cv2.VideoCapture(0)
 
 point_counter = 0
+eye_data_samples = 1000
+eye_data_list = []  # List to store eye data samples
 
 # For creating and training model for predicting screen position based on head pose and eye gaze data.
 
@@ -56,14 +60,17 @@ while True:
     # ===================== END OF EYE PROCESSING =====================
     
     # ===================== 9 POINT CALIBRATION =======================
-    points_frame = np.zeros((1065, 1920), dtype=np.uint8)
-    if avg_direction is not None:
-        # Split into 9 segments and place a point in the center of each segment.
-        for i in range(3):
-            for j in range(3):
-                center_x = (j + 0.5) * (1920 // 3)
-                center_y = (i + 0.5) * (1065 // 3)
-                cv2.circle(points_frame, (int(center_x), int(center_y)), 10, (255, 255, 255), -1)
+
+    # use pyautogui to create window the size of the screen and display 9 points for calibration purposes.
+    screen_width, screen_height = pyautogui.size()
+    points_frame = np.zeros((screen_height, screen_width, 3), dtype=np.uint8)
+
+    # Define the 9 calibration points (corners, edges, and center of the screen).
+    for i in range(3):
+        for j in range(3):
+            point_x = int((j + 0.5) * screen_width / 3)
+            point_y = int((i + 0.5) * screen_height / 3)
+            cv2.circle(points_frame, (point_x, point_y), 20, (0, 255, 0), -1)
         
     cv2.imshow("Calibration Points", points_frame)
     # ===================== END OF 9 POINT CALIBRATION =================
@@ -102,6 +109,16 @@ while True:
                 'cursor_y': cursor_y_normalized
             }
             print(f"Collected data point: {data_point}")
+        while len(eye_data_list) < eye_data_samples:
+            eye_data_list.append(data_point)
+            if len(eye_data_list) % 10 == 0:
+                print(f"Collected {len(eye_data_list)}/{eye_data_samples} eye data samples.")
+        if len(eye_data_list) >= eye_data_samples:
+            print("Collected enough eye data samples for training!")
+        
+        # Create a JSON file with the collected eye data samples for training purposes.
+        file_creator.create_file(eye_data_list)
+
     if key == ord('q'):
         break
     
