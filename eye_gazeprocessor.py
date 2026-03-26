@@ -53,25 +53,41 @@ class EyeGazeProcessor:
         pupil_left = eye_data['pupil_left']
         pupil_right = eye_data['pupil_right']
         
+        # Inter-pupil distance scales with camera distance just like iris_boxheight
+        inter_pupil_dist = abs(pupil_right[0] - pupil_left[0])
+
         left_eyelid_height = self._calculate_eyelid_height(left_iris_box)
         right_eyelid_height = self._calculate_eyelid_height(right_iris_box)
+
+        # Normalize: divide by inter-pupil distance to make scale-invariant
+        if inter_pupil_dist > 0:
+            left_eyelid_height = left_eyelid_height / inter_pupil_dist
+            right_eyelid_height = right_eyelid_height / inter_pupil_dist
         
         # Calculate the normalized position of the pupil within the eye bounding box for gaze estimation.
-        left_pupil_offset_x = (pupil_left[0] - left_iris_box[0][0]) / (left_iris_box[1][0] - left_iris_box[0][0])
-        left_pupil_offset_y = (pupil_left[1] - left_iris_box[0][1]) / (left_iris_box[1][1] - left_iris_box[0][1])
-        right_pupil_offset_x = (pupil_right[0] - right_iris_box[0][0]) / (right_iris_box[1][0] - right_iris_box[0][0])
-        right_pupil_offset_y = (pupil_right[1] - right_iris_box[0][1]) / (right_iris_box[1][1] - right_iris_box[0][1])
-        
+        left_x_span = left_iris_box[1][0] - left_iris_box[0][0]
+        left_y_span = left_iris_box[1][1] - left_iris_box[0][1]
+        right_x_span = right_iris_box[1][0] - right_iris_box[0][0]
+        right_y_span = right_iris_box[1][1] - right_iris_box[0][1]
+
+        if 0 in (left_x_span, left_y_span, right_x_span, right_y_span):
+            return self.raw_eye_data  # return last valid data
+
+        left_pupil_offset_x = (pupil_left[0] - left_iris_box[0][0]) / (left_x_span)
+        left_pupil_offset_y = (pupil_left[1] - left_iris_box[0][1]) / (left_y_span)
+        right_pupil_offset_x = (pupil_right[0] - right_iris_box[0][0]) / (right_x_span)
+        right_pupil_offset_y = (pupil_right[1] - right_iris_box[0][1]) / (right_y_span)
+
         self.raw_eye_data['left']['iris_boxheight'] = left_eyelid_height
         self.raw_eye_data['right']['iris_boxheight'] = right_eyelid_height
         self.raw_eye_data['left']['pupil'] = (left_pupil_offset_x, left_pupil_offset_y)
         self.raw_eye_data['right']['pupil'] = (right_pupil_offset_x, right_pupil_offset_y)
         
         return self.raw_eye_data
-            
-                    
-        
 
-        
+
+
+
+
 
 
