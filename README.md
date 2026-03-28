@@ -20,4 +20,7 @@ This uses degree of polynomials to gather the distance between the the iris of b
 <br><br>
 Using the second degree of polynomial gives the process a great balance between efficiency and accuracy. This is implemented by gathering the distance of the irises with their corresponding distance from the camera. The process then uses "polyfit()" to predict the values of input data outside the given samples.
 
+#### Face Axis Process (face_axisprocessor.py)
+This process of the system uses the chin, nose, forehead, leftmost point of the face, and rightmost point of the face. Using these points, it can calculate the distance between the vertical and horizontal point pairs and determine the pitch and yaw of the face.
 
+#### Eye Gaze 
