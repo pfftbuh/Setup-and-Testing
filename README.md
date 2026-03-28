@@ -18,6 +18,6 @@ This uses degree of polynomials to gather the distance between the the iris of b
 
 <img width="720" height="540" alt="image" src="https://github.com/user-attachments/assets/8a1238e4-8496-4b4b-9eac-b3f6588d700e" />
 <br><br>
-Using the second degree of polynomial gives the process a great balance between efficiency and accuracy. This is implemented by gathering the distance of the irises with their corresponding distance from the camera.
+Using the second degree of polynomial gives the process a great balance between efficiency and accuracy. This is implemented by gathering the distance of the irises with their corresponding distance from the camera. The process then uses "polyfit()" to predict the values of input data outside the given samples.
 
 
