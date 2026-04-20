@@ -34,9 +34,9 @@ while True:
         print("Calibrated! Current pose set as zero.")
         
         samples = []
-        eye_calibrator.sample_count = 30
-        # Collect 30 samples for each calibration position (center, up, down, left, right) to ensure stable calibration values.
-        while len(samples) < 30:
+        eye_calibrator.sample_count = 70  # Collect 70 samples for each calibration position to ensure stable calibration values.
+        # Collect 70 samples for each calibration position (center, up, down, left, right) to ensure stable calibration values.
+        while len(samples) < eye_calibrator.sample_count:
             ret, frame = cap.read()
             if not ret:
                 break
