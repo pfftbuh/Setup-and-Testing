@@ -1,0 +1,4 @@
+# Python dependencies for MAKITEST project
+opencv-python
+numpy
+mediapipe
