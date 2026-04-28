@@ -166,10 +166,10 @@ class EyeLandmarkerProcessor:
             eye_frame = frame[y_min:y_max, x_min:x_max].copy()
             
             # For debugging purposes, display the calculated eyelid heights and pupil offsets on the frame.
-            cv2.putText(eye_frame, f"Left Eyelid Height: {raw_eye_data['left']['iris_boxheight']:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 0), 1)
-            cv2.putText(eye_frame, f"Right Eyelid Height: {raw_eye_data['right']['iris_boxheight']:.2f}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 165, 0), 1)
-            cv2.putText(eye_frame, f"Left Pupil Offset: ({raw_eye_data['left']['pupil'][0]:.2f}, {raw_eye_data['left']['pupil'][1]:.2f})", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
-            cv2.putText(eye_frame, f"Right Pupil Offset: ({raw_eye_data['right']['pupil'][0]:.2f}, {raw_eye_data['right']['pupil'][1]:.2f})", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
+            # cv2.putText(eye_frame, f"Left Eyelid Height: {raw_eye_data['left']['iris_boxheight']:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 0), 1)
+            # cv2.putText(eye_frame, f"Right Eyelid Height: {raw_eye_data['right']['iris_boxheight']:.2f}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 165, 0), 1)
+            # cv2.putText(eye_frame, f"Left Pupil Offset: ({raw_eye_data['left']['pupil'][0]:.2f}, {raw_eye_data['left']['pupil'][1]:.2f})", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
+            # cv2.putText(eye_frame, f"Right Pupil Offset: ({raw_eye_data['right']['pupil'][0]:.2f}, {raw_eye_data['right']['pupil'][1]:.2f})", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
 
             # Resize the eye frame to a fixed size for better visualization
             eye_frame = cv2.resize(eye_frame, (450, 200))

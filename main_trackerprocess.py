@@ -94,7 +94,7 @@ while True:
             cv2.putText(screen_frame, f"Calib Right: {eye_calibrator.calibration_right:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
             if directionsval is not None:
-                cv2.putText(screen_frame, f"Gaze Direction: ({directionsval[0]}, {directionsval[1]})", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                cv2.putText(screen_frame, f"Gaze Direction: ({directionsval[0]}({directionsval[2]}), {directionsval[1]}({directionsval[3]}))", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 if directionsval[0] == "Up" and directionsval[1] == "Left":
                    # Draw a rectangle in the top-left corner of the screen frame to indicate up-left gaze direction.
                    cv2.rectangle(screen_frame, (0, 0), (screen_frame.shape[1]//3, screen_frame.shape[0]//3), (255, 0, 0), 2) 
@@ -107,7 +107,21 @@ while True:
                 elif directionsval[0] == "Down" and directionsval[1] == "Right":
                     # Draw a rectangle in the bottom-right corner of the screen frame to indicate down-right gaze direction.
                     cv2.rectangle(screen_frame, (screen_frame.shape[1]*2//3, screen_frame.shape[0]*2//3), (screen_frame.shape[1], screen_frame.shape[0]), (255, 0, 0), 2)
-                    
+                elif directionsval[0] == "Center" and directionsval[1] == "Left":
+                    # Draw a rectangle in the left-center of the screen frame to indicate center-left gaze direction.
+                    cv2.rectangle(screen_frame, (0, screen_frame.shape[0]//3), (screen_frame.shape[1]//3, screen_frame.shape[0]*2//3), (255, 0, 0), 2)
+                elif directionsval[0] == "Center" and directionsval[1] == "Right":
+                    # Draw a rectangle in the right-center of the screen frame to indicate center-right gaze direction.
+                    cv2.rectangle(screen_frame, (screen_frame.shape[1]*2//3, screen_frame.shape[0]//3), (screen_frame.shape[1], screen_frame.shape[0]*2//3), (255, 0, 0), 2)
+                elif directionsval[0] == "Up" and directionsval[1] == "Center":
+                    # Draw a rectangle in the top-center of the screen frame to indicate up-center gaze direction.
+                    cv2.rectangle(screen_frame, (screen_frame.shape[1]//3, 0), (screen_frame.shape[1]*2//3, screen_frame.shape[0]//3), (255, 0, 0), 2)
+                elif directionsval[0] == "Down" and directionsval[1] == "Center":
+                    # Draw a rectangle in the bottom-center of the screen frame to indicate down-center gaze direction.
+                    cv2.rectangle(screen_frame, (screen_frame.shape[1]//3, screen_frame.shape[0]*2//3), (screen_frame.shape[1]*2//3, screen_frame.shape[0]), (255, 0, 0), 2)
+                elif directionsval[0] == "Center" and directionsval[1] == "Center":
+                    # Draw a rectangle in the center of the screen frame to indicate center gaze direction.
+                    cv2.rectangle(screen_frame, (screen_frame.shape[1]//3, screen_frame.shape[0]//3), (screen_frame.shape[1]*2//3, screen_frame.shape[0]*2//3), (255, 0, 0), 2)                    
 
         cv2.imshow("Estimated Screen Position", screen_frame)
 

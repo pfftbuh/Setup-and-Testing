@@ -14,11 +14,13 @@ class GazeDirectionProcessor:
         pupil_right = raw_eye_data['right']['pupil']
         iris_box_left = raw_eye_data['left']['iris_boxheight']
         iris_box_right = raw_eye_data['right']['iris_boxheight']
+        calibrated_up = calibrated_thresholds['iris_boxheight_up']
+        calibrated_down = calibrated_thresholds['iris_boxheight_down']
 
         if pupil_left is not None and pupil_right is not None:
             avg_pupil_x = pupil_left[0]
             avg_pupil_y = pupil_left[1]
-            avg_iris_boxheight = iris_box_left
+            avg_iris_boxheight = iris_box_left 
             
             if avg_pupil_x is not None and avg_pupil_y is not None:
 
@@ -28,12 +30,12 @@ class GazeDirectionProcessor:
                 vertical_deadzone = 0.03
                 horizontal_deadzone = 0.05
 
-                if abs(direction_v_offset) <= vertical_deadzone:
-                    direction_vertical = "Center"
-                elif direction_v_offset > 0:
+                if iris_box_left < calibrated_down:
+                    direction_vertical = "Down"
+                elif iris_box_left > calibrated_up:
                     direction_vertical = "Up"
                 else:
-                    direction_vertical = "Down"
+                    direction_vertical = "Center"
 
                 if abs(direction_h_offset) <= horizontal_deadzone:
                     direction_horizontal = "Center"
@@ -42,7 +44,7 @@ class GazeDirectionProcessor:
                 else:
                     direction_horizontal = "Right"
 
-                self.avg_direction = f"{direction_vertical}", f"{direction_horizontal}"
+                self.avg_direction = f"{direction_vertical}", f"{direction_horizontal}", f"{iris_box_left}", f"{iris_box_right}"
 
             
             return self.avg_direction
