@@ -17,6 +17,7 @@ scoring_processor = ssp.SuspicionScoringProcessor()
 cap = cv2.VideoCapture(0)
 avg_direction = None
 raw_eye_data = None
+current_gaze = 'Center'
 
 # DEBUGGING PURPOSES: This loop processes the video feed from the webcam, detects face and eye landmarks, 
 # estimates head pose, and displays the results in real-time. 
@@ -143,7 +144,7 @@ while True:
     cv2.imshow("Eye Landmarks", eye_frame)
     # ===================== END OF EYE PROCESSING =====================
 
-    scoring_processor.update(frame, )
+    scoring_processor.update(frame, current_gaze)
     
         
 
