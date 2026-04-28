@@ -27,12 +27,12 @@ class GazeDirectionProcessor:
                 direction_v_offset = avg_iris_boxheight - calibrated_thresholds['iris_boxheight_center']
                 direction_h_offset = avg_pupil_x - calibrated_thresholds['x_center']
 
-                vertical_deadzone = 0.02
+                vertical_deadzone = 0.005
                 horizontal_deadzone = 0.05
 
                 if abs(direction_v_offset) <= vertical_deadzone:
                     direction_vertical = "Center"
-                elif direction_v_offset > 0:
+                elif direction_v_offset > 0.10:
                     direction_vertical = "Up"
                 else:
                     direction_vertical = "Down"
