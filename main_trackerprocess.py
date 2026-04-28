@@ -5,12 +5,14 @@ import face_axisprocessor as fap
 import eye_trackprocessor as etp
 import eye_calibrationprocessor as ecp
 import gaze_directionprocessor as gdp
+import suspicion_scoringprocessor as ssp
 
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
 eye_processor = etp.EyeLandmarkerProcessor()
 eye_calibrator = ecp.EyeCalibrationProcessor()
 gaze_processor = gdp.GazeDirectionProcessor()
+scoring_processor = ssp.SuspicionScoringProcessor()
 
 cap = cv2.VideoCapture(0)
 avg_direction = None
@@ -93,7 +95,13 @@ while True:
             cv2.putText(screen_frame, f"Calib Left: {eye_calibrator.calibration_left:.4f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Right: {eye_calibrator.calibration_right:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
+            
             if directionsval is not None:
+                if directionsval[0] != "Center":
+                    current_gaze = directionsval[0]
+                elif directionsval[1] != "Center":
+                    current_gaze = directionsval[1]
+                
                 cv2.putText(screen_frame, f"Gaze Direction: ({directionsval[0]}({directionsval[2]}), {directionsval[1]}({directionsval[3]}))", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 if directionsval[0] == "Up" and directionsval[1] == "Left":
                    # Draw a rectangle in the top-left corner of the screen frame to indicate up-left gaze direction.
@@ -135,6 +143,7 @@ while True:
     cv2.imshow("Eye Landmarks", eye_frame)
     # ===================== END OF EYE PROCESSING =====================
 
+    scoring_processor.update(frame, )
     
         
 
