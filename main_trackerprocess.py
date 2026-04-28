@@ -43,6 +43,7 @@ while True:
             ret, frame = cap.read()
             if not ret:
                 break
+            frame = cv2.resize(frame, (1280, 720))
             eye_frame = frame.copy()
             eye_results = eye_processor.process_frame(eye_frame)
             eye_frame, raw_eye_data = eye_processor._draw_landmarks(eye_frame, eye_results)
