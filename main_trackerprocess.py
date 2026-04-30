@@ -146,8 +146,7 @@ while True:
     # ===================== END OF EYE PROCESSING =====================
 
     scoring_processor.update(frame, current_gaze)
-    
-        
 
+scoring_processor.cleanup()
 cap.release()
 cv2.destroyAllWindows()
