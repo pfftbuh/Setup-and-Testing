@@ -32,6 +32,7 @@ class SuspicionScoringProcessor:
         
         # Feature 4: Threading
         self.active_threads = []
+        self._threads_lock = threading.Lock()
 
     def _init_csv(self):
         headers = [
@@ -133,7 +134,8 @@ class SuspicionScoringProcessor:
                     args=(self.pre_roll_copy, self.post_roll, self.recording_reason, self.recording_filename),
                     daemon=True
                 )
-                self.active_threads.append(t)
+                with self._threads_lock:
+                    self.active_threads.append(t)
                 t.start()
                 
                 # Reset recording state
@@ -159,20 +161,26 @@ class SuspicionScoringProcessor:
         first_frame = all_frames[0]
         height, width = first_frame.shape[:2]
         
-        # Use cv2.VideoWriter with mp4v codec at 30 FPS
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Change filename extension from .mp4 to .avi for better Windows compatibility
+        filename = filename.replace('.mp4', '.avi')
+        
+        # Use cv2.VideoWriter with XVID codec which is highly reliable on Windows
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
         out = cv2.VideoWriter(filename, fourcc, 30.0, (width, height))
         
         for f in all_frames:
             out.write(f)
             
         out.release()
-        print(f"[SuspicionScoring] Video evidence saved: {filename}")
+        import os
+        abs_path = os.path.abspath(filename)
+        print(f"[SuspicionScoring] Video evidence saved successfully to: {abs_path}")
         
         # Thread cleanup
-        current_thread = threading.current_thread()
-        if current_thread in self.active_threads:
-            self.active_threads.remove(current_thread)
+        with self._threads_lock:
+            current_thread = threading.current_thread()
+            if current_thread in self.active_threads:
+                self.active_threads.remove(current_thread)
 
     def cleanup(self):
         # Log the final state
@@ -186,7 +194,9 @@ class SuspicionScoringProcessor:
         )
         
         # Feature 4: Graceful Shutdown
-        for t in list(self.active_threads):
+        with self._threads_lock:
+            threads_copy = list(self.active_threads)
+        for t in threads_copy:
             if t.is_alive():
                 print("[SuspicionScoring] Waiting for video save to finish...")
                 t.join()

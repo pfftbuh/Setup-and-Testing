@@ -18,9 +18,10 @@ class GazeDirectionProcessor:
         calibrated_down = calibrated_thresholds['iris_boxheight_down']
 
         if pupil_left is not None and pupil_right is not None:
-            avg_pupil_x = pupil_left[0]
-            avg_pupil_y = pupil_left[1]
-            avg_iris_boxheight = iris_box_left 
+            # Average both eyes for more accurate and stable gaze estimation
+            avg_pupil_x = (pupil_left[0] + pupil_right[0]) / 2.0
+            avg_pupil_y = (pupil_left[1] + pupil_right[1]) / 2.0
+            avg_iris_boxheight = (iris_box_left + iris_box_right) / 2.0
             
             if avg_pupil_x is not None and avg_pupil_y is not None:
 
@@ -48,3 +49,4 @@ class GazeDirectionProcessor:
 
             
             return self.avg_direction
+        return None

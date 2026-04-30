@@ -11,6 +11,7 @@ class FaceLandmarkerProcessor:
         def __init__(self, model_path: str = "face_landmarker.task"):
             # Initialize the FaceLandmarkerProcessor with the specified model path.
             self.model_path = model_path
+            self.fdp_processor = fdp.FaceDistanceProcessor()
             
             # Intialize FaceLandmarker attributes
             BaseOptions = python.BaseOptions
@@ -60,7 +61,7 @@ class FaceLandmarkerProcessor:
                 landmarks = results.face_landmarks[0]
                 
                 # Convert left and right eye landmarks to numpy arrays and store in a dictionary for easy access.
-                fdp_processor = fdp.FaceDistanceProcessor()
+                fdp_processor = self.fdp_processor
                 left_eye = landmark_to_np(landmarks[145], w, h)
                 right_eye = landmark_to_np(landmarks[374], w, h)
                 distance = fdp_processor.estimate_distance(left_eye, right_eye)
@@ -133,5 +134,5 @@ class FaceLandmarkerProcessor:
             if avg_direction is not None:
                 return frame, avg_direction
             else:
-                return frame, avg_direction == None
+                return frame, None
             
