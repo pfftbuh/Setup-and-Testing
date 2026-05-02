@@ -1,9 +1,18 @@
 import numpy as np
+import time
 
 class EyeScreenPosProcessor:
     def __init__(self, screen_width, screen_height):
         self.screen_width = screen_width
         self.screen_height = screen_height
+
+        # Smoothing state
+        self.smoothed_pos = None
+        self.last_t = None
+
+        # Time constant (seconds): bigger = smoother/slower
+        self.smoothing_tau = 0.18
+
         self.segments = {
             "UpLeft": ((0, 0), (screen_width//3, screen_height//3)),
             "UpCenter": ((screen_width//3, 0), (screen_width*2//3, screen_height//3)),
@@ -13,8 +22,29 @@ class EyeScreenPosProcessor:
             "CenterRight": ((screen_width*2//3, screen_height//3), (screen_width, screen_height*2//3)),
             "DownLeft": ((0, screen_height*2//3), (screen_width//3, screen_height)),
             "DownCenter": ((screen_width//3, screen_height*2//3), (screen_width*2//3, screen_height)),
-            "DownRight": ((screen_width*2//3, screen_height*2//3), (screen_width, screen_height))
+            "DownRight": ((screen_width*2//3, screen_height*2//3), (screen_width, screen_height)),
         }
+
+    def _smooth(self, target_xy):
+        now = time.time()
+        if self.smoothed_pos is None or self.last_t is None:
+            self.smoothed_pos = np.array(target_xy, dtype=float)
+            self.last_t = now
+            return tuple(self.smoothed_pos)
+
+        dt = max(1e-3, now - self.last_t)
+        self.last_t = now
+
+        # Frame-rate independent EMA: alpha in (0,1)
+        alpha = 1.0 - np.exp(-dt / self.smoothing_tau)
+
+        target = np.array(target_xy, dtype=float)
+        self.smoothed_pos += alpha * (target - self.smoothed_pos)
+
+        self.smoothed_pos[0] = np.clip(self.smoothed_pos[0], 0, self.screen_width - 1)
+        self.smoothed_pos[1] = np.clip(self.smoothed_pos[1], 0, self.screen_height - 1)
+
+        return tuple(self.smoothed_pos)
 
     def process(self, raw_eye_data, gaze_direction):
         # Convert normalized eye position to screen coordinates
@@ -89,4 +119,6 @@ class EyeScreenPosProcessor:
         else:
             return None 
         
-        return (screen_x, screen_y)
+        target = (screen_x, screen_y)
+        smooth_x, smooth_y = self._smooth(target)
+        return (smooth_x, smooth_y)
