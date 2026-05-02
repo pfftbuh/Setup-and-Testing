@@ -17,7 +17,7 @@ eye_processor = etp.EyeLandmarkerProcessor()
 eye_calibrator = ecp.EyeCalibrationProcessor()
 gaze_processor = gdp.GazeDirectionProcessor()
 scoring_processor = ssp.SuspicionScoringProcessor()
-screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
+screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 cap = cv2.VideoCapture(0)
 avg_direction = None
@@ -80,7 +80,7 @@ while True:
     output_frame, avg_direction = processor._draw_landmarks(face_frame, results)
     if avg_direction is not None:
         yaw, pitch = axis_processor.process(avg_direction)
-        screen_x, screen_y = axis_processor.get_estimated_screen_position()
+        face_screenpos = axis_processor.get_estimated_screen_position()
         if yaw is not None and pitch is not None:
             cv2.putText(output_frame, f"Yaw: {yaw:.2f} deg", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(output_frame, f"Pitch: {pitch:.2f} deg", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -92,10 +92,10 @@ while True:
     # Frame is for debugging purposes, create a frame with the estimated screen position.
     if avg_direction is not None:
         screen_frame = np.zeros((SCREEN_HEIGHT//2, SCREEN_WIDTH//2, 3), dtype=np.uint8)
-        if screen_x is not None and screen_y is not None:
-            cv2.circle(screen_frame, (int(screen_x//2), int(screen_y//2)), 10, (0, 255, 0), -1)
+        if face_screenpos is not None:
+            cv2.circle(screen_frame, (int(face_screenpos[0]//2), int(face_screenpos[1]//2)), 10, (0, 255, 0), -1)
             # Face Position test that follows the estimated screen position from the head pose estimation.
-            cv2.putText(screen_frame, f"Estimated Screen Pos(Face) ({screen_x:.2f}, {screen_y:.2f})", (int(screen_x//2) - 10, int(screen_y//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(screen_frame, f"Estimated Screen Pos(Face) ({face_screenpos[0]:.2f}, {face_screenpos[1]:.2f})", (int(face_screenpos[0]//2) - 10, int(face_screenpos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         # For debugging purposes, display calibration thresholds values on the screen frame.
         if eye_calibrator.calibration_stage == 5:
             cv2.putText(screen_frame, f"Calib Center: ({eye_calibrator.calibration_iris_boxheight_center:.4f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -107,10 +107,15 @@ while True:
             eye_screenpos = screen_pos_processor.process(raw_eye_data, directionsval)
 
             # Draw circle on the screen frame based on the estimated screen position from the eye tracking.
-            cv2.circle(screen_frame, (int(eye_screenpos[0]), int(eye_screenpos[1])), 10, (0, 0, 255), -1)   
+            cv2.circle(screen_frame, (int(eye_screenpos[0]//2), int(eye_screenpos[1]//2)), 10, (0, 0, 255), -1)   
             # Eye Position test that follows the estimated screen position from the eye tracking. 
-            cv2.putText(screen_frame, f"Estimated Screen Pos(Eye) ({eye_screenpos[0]:.2f}, {eye_screenpos[1]:.2f})", (int(eye_screenpos[0]) - 10, int(eye_screenpos[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(screen_frame, f"Estimated Screen Pos(Eye) ({eye_screenpos[0]:.2f}, {eye_screenpos[1]:.2f})", (int(eye_screenpos[0]//2) - 10, int(eye_screenpos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
+            # Weighted Screen Position based on the estimated screen position from both the head pose estimation and the eye tracking.
+            weighted_screen_pos = gaze_processor.weighted_screen_position(face_screenpos, eye_screenpos)
+            cv2.circle(screen_frame, (int(weighted_screen_pos[0]//2), int(weighted_screen_pos[1]//2)), 10, (255, 255, 0), -1)
+            cv2.putText(screen_frame, f"Weighted Screen Pos ({weighted_screen_pos[0]:.2f}, {weighted_screen_pos[1]:.2f})", (int(weighted_screen_pos[0]//2) - 10, int(weighted_screen_pos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
             if directionsval is not None:
                 if directionsval[0] != "Center":
                     current_gaze = directionsval[0]

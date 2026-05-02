@@ -4,6 +4,18 @@ class GazeDirectionProcessor:
     def __init__(self):
         self.avg_direction = None
 
+    def weighted_screen_position(self, screen_pos_face, screen_pos_eye, weight_face=0.5, weight_eye=0.5):
+        if screen_pos_face is None and screen_pos_eye is None:
+            return None
+        elif screen_pos_face is None:
+            return screen_pos_eye
+        elif screen_pos_eye is None:
+            return screen_pos_face
+        
+        weighted_x = int(screen_pos_face[0] * weight_face + screen_pos_eye[0] * weight_eye)
+        weighted_y = int(screen_pos_face[1] * weight_face + screen_pos_eye[1] * weight_eye)
+        
+        return (weighted_x, weighted_y)
 
     def update_direction(self, raw_eye_data, calibrated_thresholds):
         if raw_eye_data is None or calibrated_thresholds is None:
