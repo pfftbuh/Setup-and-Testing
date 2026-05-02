@@ -6,6 +6,10 @@ import eye_trackprocessor as etp
 import eye_calibrationprocessor as ecp
 import gaze_directionprocessor as gdp
 import suspicion_scoringprocessor as ssp
+import eye_screenposprocessor as esp
+
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
@@ -13,6 +17,7 @@ eye_processor = etp.EyeLandmarkerProcessor()
 eye_calibrator = ecp.EyeCalibrationProcessor()
 gaze_processor = gdp.GazeDirectionProcessor()
 scoring_processor = ssp.SuspicionScoringProcessor()
+screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
 
 cap = cv2.VideoCapture(0)
 avg_direction = None
@@ -86,9 +91,11 @@ while True:
     # ===================== ESTIMATED SCREEN POSITION DEBUGGING =========
     # Frame is for debugging purposes, create a frame with the estimated screen position.
     if avg_direction is not None:
-        screen_frame = np.zeros((1080//2, 1920//2, 3), dtype=np.uint8)
+        screen_frame = np.zeros((SCREEN_HEIGHT//2, SCREEN_WIDTH//2, 3), dtype=np.uint8)
         if screen_x is not None and screen_y is not None:
             cv2.circle(screen_frame, (int(screen_x//2), int(screen_y//2)), 10, (0, 255, 0), -1)
+            # Face Position test that follows the estimated screen position from the head pose estimation.
+            cv2.putText(screen_frame, f"Estimated Screen Pos(Face) ({screen_x:.2f}, {screen_y:.2f})", (int(screen_x//2) - 10, int(screen_y//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         # For debugging purposes, display calibration thresholds values on the screen frame.
         if eye_calibrator.calibration_stage == 5:
             cv2.putText(screen_frame, f"Calib Center: ({eye_calibrator.calibration_iris_boxheight_center:.4f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -97,6 +104,12 @@ while True:
             cv2.putText(screen_frame, f"Calib Left: {eye_calibrator.calibration_left:.4f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Right: {eye_calibrator.calibration_right:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
+            eye_screenpos = screen_pos_processor.process(raw_eye_data, directionsval)
+
+            # Draw circle on the screen frame based on the estimated screen position from the eye tracking.
+            cv2.circle(screen_frame, (int(eye_screenpos[0]), int(eye_screenpos[1])), 10, (0, 0, 255), -1)   
+            # Eye Position test that follows the estimated screen position from the eye tracking. 
+            cv2.putText(screen_frame, f"Estimated Screen Pos(Eye) ({eye_screenpos[0]:.2f}, {eye_screenpos[1]:.2f})", (int(eye_screenpos[0]) - 10, int(eye_screenpos[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             if directionsval is not None:
                 if directionsval[0] != "Center":
