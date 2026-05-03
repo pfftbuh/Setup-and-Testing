@@ -8,6 +8,7 @@ import gaze_directionprocessor as gdp
 import suspicion_scoringprocessor as ssp
 import eye_screenposprocessor as esp
 import keypress_trackprocessor as ktp
+import heatmap_processor as hp
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 
@@ -19,6 +20,7 @@ gaze_processor = gdp.GazeDirectionProcessor()
 scoring_processor = ssp.SuspicionScoringProcessor()
 screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 keypress_processor = ktp.KeypressTrackProcessor()
+heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 cap = cv2.VideoCapture(0)
 avg_direction = None
@@ -116,6 +118,11 @@ while True:
             
             # Weighted Screen Position based on the estimated screen position from both the head pose estimation and the eye tracking.
             weighted_screen_pos = gaze_processor.weighted_screen_position(face_screenpos, eye_screenpos)
+            
+            # Record point for heatmap
+            if weighted_screen_pos is not None:
+                heatmap_processor.add_point(weighted_screen_pos)
+                
             cv2.circle(screen_frame, (int(weighted_screen_pos[0]//2), int(weighted_screen_pos[1]//2)), 10, (255, 255, 0), -1)
             cv2.putText(screen_frame, f"Weighted Screen Pos ({weighted_screen_pos[0]:.2f}, {weighted_screen_pos[1]:.2f})", (int(weighted_screen_pos[0]//2) - 10, int(weighted_screen_pos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
@@ -177,3 +184,4 @@ cap.release()
 cv2.destroyAllWindows()
 scoring_processor.cleanup()
 keypress_processor.cleanup()
+heatmap_processor.generate_heatmap()
