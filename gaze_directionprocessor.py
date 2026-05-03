@@ -30,14 +30,14 @@ class GazeDirectionProcessor:
         calibrated_down = calibrated_thresholds['iris_boxheight_down']
 
         if pupil_left is not None and pupil_right is not None:
-            avg_pupil_x = pupil_left[0]
-            avg_pupil_y = pupil_left[1]
-            avg_iris_boxheight = iris_box_left 
+            avg_pupil_x = (pupil_left[0] + pupil_right[0]) / 2.0
+            avg_pupil_y = (pupil_left[1] + pupil_right[1]) / 2.0
+            avg_iris_boxheight = (iris_box_left + iris_box_right) / 2.0
             
             if avg_pupil_x is not None and avg_pupil_y is not None:
 
                 direction_v_offset = avg_iris_boxheight - calibrated_thresholds['iris_boxheight_center']
-                direction_h_offset = avg_pupil_x - calibrated_thresholds['x_center']
+                direction_h_offset = avg_pupil_x - calibrated_thresholds['center']
 
                 vertical_deadzone = 0.01
                 horizontal_deadzone = 0.05

@@ -41,7 +41,7 @@ class EyeLandmarkerProcessor:
 
         # iris box indices
         self.left_iris_box_indices = [160, 153]
-        self.right_iris_box_indices = [387, 380]
+        self.right_iris_box_indices = [380, 387]
         
         # Initialize the eye gaze processor for calibration and gaze estimation.
         self.gaze_processor = egp.EyeGazeProcessor()

@@ -46,7 +46,7 @@ class EyeScreenPosProcessor:
 
         return tuple(self.smoothed_pos)
 
-    def process(self, raw_eye_data, gaze_direction):
+    def process(self, calibrated_thresholds, raw_eye_data, gaze_direction):
         # Convert normalized eye position to screen coordinates
         if raw_eye_data is None or gaze_direction is None:
             return None # or return last known position
@@ -57,68 +57,100 @@ class EyeScreenPosProcessor:
         
         avg_pupil_x = (pupil_left[0] + pupil_right[0]) / 2.0
         avg_pupil_y = (pupil_left[1] + pupil_right[1]) / 2.0
+        avg_iris_boxheight = (raw_eye_data['left']['iris_boxheight'] + raw_eye_data['right']['iris_boxheight']) / 2.0
 
-        u = np.clip(avg_pupil_x, 0.0, 1.0)
-        v = np.clip(avg_pupil_y, 0.0, 1.0)
+        # Map estimated screen position using eyelid height to determine vertical segment, and pupil position for horizontal segment.
+        h_up = calibrated_thresholds['iris_boxheight_up']
+        h_down = calibrated_thresholds['iris_boxheight_down']
+        h_center = calibrated_thresholds['iris_boxheight_center']
+
+        h_range = h_up - h_down
+
+        if h_range > 0:
+            # Normalize vertical position based on eyelid height relative to calibrated up/down thresholds.
+            v_norm = (avg_iris_boxheight - h_down) / h_range
+            v_norm = np.clip(v_norm, 0.0, 1.0)
+        else:
+            v_norm = 0.5  # default to center if no valid range
+        
+        w_left = calibrated_thresholds['left']
+        w_right = calibrated_thresholds['right']
+        w_range = w_left - w_right
+
+        if w_range > 0:
+            # Normalize horizontal position based on pupil offset relative to calibrated left/right thresholds.
+            h_norm = (avg_pupil_x - w_right) / w_range
+            h_norm = np.clip(h_norm, 0.0, 1.0)
+        else:
+            h_norm = 0.5  # default to center if no valid range
+        
+        # For simplicity, we can directly map the normalized (h_norm, v_norm) to screen coordinates.
+        screen_x = int((1.0 - h_norm) * (self.screen_width - 1))
+        screen_y = int((1.0 - v_norm) * (self.screen_height - 1))
+
 
         
-        if gaze_direction[0] == "Up" and gaze_direction[1] == "Left":
-            # Map to up-left segment
-            x1, y1 = self.segments["UpLeft"][0]
-            x2, y2 = self.segments["UpLeft"][1]
-            screen_x = u * (x2 - x1) + x1  
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Up" and gaze_direction[1] == "Center":
-            # Map to up-center segment
-            x1, y1 = self.segments["UpCenter"][0]
-            x2, y2 = self.segments["UpCenter"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Up" and gaze_direction[1] == "Right":
-            # Map to up-right segment
-            x1, y1 = self.segments["UpRight"][0]
-            x2, y2 = self.segments["UpRight"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Center" and gaze_direction[1] == "Left":
-            # Map to center-left segment
-            x1, y1 = self.segments["CenterLeft"][0]
-            x2, y2 = self.segments["CenterLeft"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Center" and gaze_direction[1] == "Center":
-            # Map to center-center segment
-            x1, y1 = self.segments["CenterCenter"][0]
-            x2, y2 = self.segments["CenterCenter"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Center" and gaze_direction[1] == "Right":
-            # Map to center-right segment
-            x1, y1 = self.segments["CenterRight"][0]
-            x2, y2 = self.segments["CenterRight"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Down" and gaze_direction[1] == "Left":
-            # Map to down-left segment
-            x1, y1 = self.segments["DownLeft"][0]
-            x2, y2 = self.segments["DownLeft"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Down" and gaze_direction[1] == "Center":
-            # Map to down-center segment
-            x1, y1 = self.segments["DownCenter"][0]
-            x2, y2 = self.segments["DownCenter"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        elif gaze_direction[0] == "Down" and gaze_direction[1] == "Right":
-            # Map to down-right segment
-            x1, y1 = self.segments["DownRight"][0]
-            x2, y2 = self.segments["DownRight"][1]
-            screen_x = u * (x2 - x1) + x1
-            screen_y = v * (y2 - y1) + y1
-        else:
-            return None 
+        # if gaze_direction[0] == "Up" and gaze_direction[1] == "Left":
+        #     # Map to up-left segment
+        #     x1, y1 = self.segments["UpLeft"][0]
+        #     x2, y2 = self.segments["UpLeft"][1]
+        #     screen_x = u * (x2 - x1) + x1  
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Up" and gaze_direction[1] == "Center":
+        #     # Map to up-center segment
+        #     x1, y1 = self.segments["UpCenter"][0]
+        #     x2, y2 = self.segments["UpCenter"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Up" and gaze_direction[1] == "Right":
+        #     # Map to up-right segment
+        #     x1, y1 = self.segments["UpRight"][0]
+        #     x2, y2 = self.segments["UpRight"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Center" and gaze_direction[1] == "Left":
+        #     # Map to center-left segment
+        #     x1, y1 = self.segments["CenterLeft"][0]
+        #     x2, y2 = self.segments["CenterLeft"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Center" and gaze_direction[1] == "Center":
+        #     # Map to center-center segment
+        #     x1, y1 = self.segments["CenterCenter"][0]
+        #     x2, y2 = self.segments["CenterCenter"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Center" and gaze_direction[1] == "Right":
+        #     # Map to center-right segment
+        #     x1, y1 = self.segments["CenterRight"][0]
+        #     x2, y2 = self.segments["CenterRight"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Down" and gaze_direction[1] == "Left":
+        #     # Map to down-left segment
+        #     x1, y1 = self.segments["DownLeft"][0]
+        #     x2, y2 = self.segments["DownLeft"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Down" and gaze_direction[1] == "Center":
+        #     # Map to down-center segment
+        #     x1, y1 = self.segments["DownCenter"][0]
+        #     x2, y2 = self.segments["DownCenter"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # elif gaze_direction[0] == "Down" and gaze_direction[1] == "Right":
+        #     # Map to down-right segment
+        #     x1, y1 = self.segments["DownRight"][0]
+        #     x2, y2 = self.segments["DownRight"][1]
+        #     screen_x = u * (x2 - x1) + x1
+        #     screen_y = v * (y2 - y1) + y1
+        # else:
+        #     return None 
         
         target = (screen_x, screen_y)
         smooth_x, smooth_y = self._smooth(target)
+        # If None is returned, it means we don't have valid eye data to estimate position, so we can choose to return None or the last known smoothed position.
+        if smooth_x is None or smooth_y is None:
+            return None
+
         return (smooth_x, smooth_y)

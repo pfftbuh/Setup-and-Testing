@@ -42,8 +42,8 @@ while True:
         print("Calibrated! Current pose set as zero.")
         
         samples = []
-        eye_calibrator.sample_count = 70  # Collect 70 samples for each calibration position to ensure stable calibration values.
-        # Collect 70 samples for each calibration position (center, up, down, left, right) to ensure stable calibration values.
+        eye_calibrator.sample_count = 60  # Collect 60 samples for each calibration position to ensure stable calibration values.
+        # Collect 60 samples for each calibration position (center, up, down, left, right) to ensure stable calibration values.
         while len(samples) < eye_calibrator.sample_count:
             ret, frame = cap.read()
             if not ret:
@@ -104,7 +104,7 @@ while True:
             cv2.putText(screen_frame, f"Calib Left: {eye_calibrator.calibration_left:.4f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Right: {eye_calibrator.calibration_right:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
-            eye_screenpos = screen_pos_processor.process(raw_eye_data, directionsval)
+            eye_screenpos = screen_pos_processor.process( eye_calibrator.calibrated_thresholds, raw_eye_data, directionsval)
 
             # Draw circle on the screen frame based on the estimated screen position from the eye tracking.
             cv2.circle(screen_frame, (int(eye_screenpos[0]//2), int(eye_screenpos[1]//2)), 10, (0, 0, 255), -1)   

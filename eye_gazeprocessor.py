@@ -30,7 +30,7 @@ class EyeGazeProcessor:
 
         # iris box indices
         self.left_iris_box_indices = [160, 153]
-        self.right_iris_box_indices = [387, 380]
+        self.right_iris_box_indices = [380, 387]
         
         self.pupil_points = {
                 'left': None,

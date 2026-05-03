@@ -5,7 +5,7 @@ from collections import deque
 
 class EyeCalibrationProcessor:
     def __init__(self):
-        self.sample_count = 30
+        self.sample_count = 60
 
         self.calibration_up = 0.0
         self.calibration_down = 0.0
@@ -34,12 +34,12 @@ class EyeCalibrationProcessor:
         self.calibration_iris_boxheight_down_values = deque(maxlen=self.sample_count)
 
         self.calibrated_thresholds = {
-            'x_up': self.calibration_up,
-            'x_down': self.calibration_down,
-            'x_center': self.calibration_h_center,
-            'y_left': self.calibration_left,
-            'y_right': self.calibration_right,
-            'y_center': self.calibration_v_center,
+            'up': self.calibration_up,
+            'down': self.calibration_down,
+            'center': self.calibration_h_center,
+            'left': self.calibration_left,
+            'right': self.calibration_right,
+            'v_center': self.calibration_v_center,
             'iris_boxheight_center': self.calibration_iris_boxheight_center,
             'iris_boxheight_up': self.calibration_iris_boxheight_up,
             'iris_boxheight_down': self.calibration_iris_boxheight_down
@@ -53,27 +53,33 @@ class EyeCalibrationProcessor:
 
             if self.calibration_stage == 0:
                 # Calibrate center position — one real sample per frame
-                self.calibration_h_center_values.append(raw_eye_data['left']['pupil'][0])
-                self.calibration_v_center_values.append(raw_eye_data['left']['pupil'][1])
+                avg_pupil_x = (raw_eye_data['left']['pupil'][0] + raw_eye_data['right']['pupil'][0]) / 2.0
+                avg_pupil_y = (raw_eye_data['left']['pupil'][1] + raw_eye_data['right']['pupil'][1]) / 2.0
+                self.calibration_h_center_values.append(avg_pupil_x)
+                self.calibration_v_center_values.append(avg_pupil_y)
                 self.calibration_iris_boxheight_center_values.append((raw_eye_data['left']['iris_boxheight'] + raw_eye_data['right']['iris_boxheight']) / 2.0)
 
             elif self.calibration_stage == 1:
                 # Calibrate up position
-                self.calibration_up_values.append(raw_eye_data['left']['pupil'][1])
+                avg_pupil_y = (raw_eye_data['left']['pupil'][1] + raw_eye_data['right']['pupil'][1]) / 2.0
+                self.calibration_up_values.append(avg_pupil_y)
                 self.calibration_iris_boxheight_up_values.append((raw_eye_data['left']['iris_boxheight'] + raw_eye_data['right']['iris_boxheight']) / 2.0)
 
             elif self.calibration_stage == 2:
                 # Calibrate down position
-                self.calibration_down_values.append(raw_eye_data['left']['pupil'][1])
+                avg_pupil_y = (raw_eye_data['left']['pupil'][1] + raw_eye_data['right']['pupil'][1]) / 2.0
+                self.calibration_down_values.append(avg_pupil_y)
                 self.calibration_iris_boxheight_down_values.append((raw_eye_data['left']['iris_boxheight'] + raw_eye_data['right']['iris_boxheight']) / 2.0)
 
             elif self.calibration_stage == 3:
                 # Calibrate left position
-                self.calibration_left_values.append(raw_eye_data['left']['pupil'][0])
+                avg_pupil_x = (raw_eye_data['left']['pupil'][0] + raw_eye_data['right']['pupil'][0]) / 2.0
+                self.calibration_left_values.append(avg_pupil_x)
 
             elif self.calibration_stage == 4:
                 # Calibrate right position
-                self.calibration_right_values.append(raw_eye_data['left']['pupil'][0])
+                avg_pupil_x = (raw_eye_data['left']['pupil'][0] + raw_eye_data['right']['pupil'][0]) / 2.0
+                self.calibration_right_values.append(avg_pupil_x)
 
     
     def next_stage(self):
@@ -104,12 +110,12 @@ class EyeCalibrationProcessor:
             self.calibration_iris_boxheight_down = np.mean(self.calibration_iris_boxheight_down_values) if self.calibration_iris_boxheight_down_values else 0.0
 
             self.calibrated_thresholds = {
-                'x_up': self.calibration_up,
-                'x_down': self.calibration_down,
-                'x_center': self.calibration_h_center,
-                'y_left': self.calibration_left,
-                'y_right': self.calibration_right,
-                'y_center': self.calibration_v_center,
+                'up': self.calibration_up,
+                'down': self.calibration_down,
+                'center': self.calibration_h_center,
+                'left': self.calibration_left,
+                'right': self.calibration_right,
+                'v_center': self.calibration_v_center,
                 'iris_boxheight_center': self.calibration_iris_boxheight_center,
                 'iris_boxheight_up': self.calibration_iris_boxheight_up,
                 'iris_boxheight_down': self.calibration_iris_boxheight_down
