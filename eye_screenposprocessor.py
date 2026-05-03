@@ -149,8 +149,8 @@ class EyeScreenPosProcessor:
         
         target = (screen_x, screen_y)
         smooth_x, smooth_y = self._smooth(target)
-        # If None is returned, it means we don't have valid eye data to estimate position, so we can choose to return None or the last known smoothed position.
+        # If None is returned, it means we don't have valid eye data to estimate position, so we can choose to return the last known smoothed position.
         if smooth_x is None or smooth_y is None:
-            return None
+            return self.smoothed_pos if self.smoothed_pos is not None else (self.screen_width // 2, self.screen_height // 2)
 
         return (smooth_x, smooth_y)
