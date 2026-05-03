@@ -3,11 +3,19 @@ import time
 import threading
 import csv
 import collections
+import os
 from datetime import datetime
 
 class SuspicionScoringProcessor:
-    def __init__(self):
-        # Feature 1: Event-Based CSV Logging Initialization
+    def __init__(self, side_threshold=3.0, down_threshold=5.0, freq_threshold=6, screen_width=1920, screen_height=1080):
+        # Configuration
+        self.side_threshold = side_threshold
+        self.down_threshold = down_threshold
+        self.freq_threshold = freq_threshold
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        
+        # Event-Based CSV Logging Initialization
         self.session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.csv_filename = f"session_log_{self.session_timestamp}.csv"
         self._init_csv()
@@ -19,18 +27,18 @@ class SuspicionScoringProcessor:
         self.current_score = 0
         self.current_video_file = ""
         
-        # Feature 2: State Machine
+        # State Machine Tracking
         self.shift_timestamps = collections.deque()
         
-        # Feature 3: Optimized Video Capture
-        self.frame_buffer = collections.deque(maxlen=90)  # 3 seconds at 30 fps
+        # Optimized Video Capture
+        self.frame_buffer = collections.deque(maxlen=90)  # 3 seconds at 30 fps (pre-roll)
         self.is_recording = False
         self.post_roll = []
         self.pre_roll_copy = []
         self.recording_reason = ""
         self.recording_filename = ""
         
-        # Feature 4: Threading
+        # Threading
         self.active_threads = []
         self._threads_lock = threading.Lock()
 
@@ -55,12 +63,28 @@ class SuspicionScoringProcessor:
             writer = csv.writer(f)
             writer.writerow([direction, start_str, finish_str, label, score, video_file])
 
-    def update(self, frame, gaze_direction: str):
+    def _is_off_screen(self, pos):
+        """Helper to determine if a given coordinate tuple is outside screen bounds."""
+        if pos is None:
+            return True
+        if not isinstance(pos, (tuple, list)) or len(pos) < 2:
+            return True
+        x, y = pos
+        return x < 0 or x > self.screen_width or y < 0 or y > self.screen_height
+
+    def update(self, frame, raw_gaze_direction, eye_screen_pos: tuple, face_screen_pos: tuple, keystrokes: list):
         current_time = time.time()
         
-        # Feature 3: Pre-roll buffer
+        # Continuous Pre-roll buffer
         self.frame_buffer.append(frame)
         
+        # Data Sanitization
+        gaze_direction = "Center" # Default fallback
+        if isinstance(raw_gaze_direction, (list, tuple)) and len(raw_gaze_direction) > 0:
+            gaze_direction = str(raw_gaze_direction[0])
+        elif isinstance(raw_gaze_direction, str):
+            gaze_direction = raw_gaze_direction
+            
         # Handle state transitions for CSV Logging
         if gaze_direction != self.current_state_direction:
             # Gaze state has finished, log it
@@ -73,7 +97,7 @@ class SuspicionScoringProcessor:
                 self.current_video_file
             )
             
-            # Feature 2: Record shifts from Center to anything else
+            # Record shifts from Center to anything else for frequency tracking
             if self.current_state_direction == "Center" and gaze_direction != "Center":
                 self.shift_timestamps.append(current_time)
                 
@@ -92,17 +116,33 @@ class SuspicionScoringProcessor:
 
         # Check thresholds only if not currently recording post-roll
         if not self.is_recording:
-            # Duration Check
-            duration = current_time - self.state_start_time
-            if gaze_direction in ["Left", "Right", "Up"] and duration > 3.0:
-                violation_reason = f"{gaze_direction}_duration"
-            elif gaze_direction == "Down" and duration > 5.0:
-                violation_reason = f"{gaze_direction}_duration"
+            
+            # 1. Keystrokes (Highest Priority)
+            if keystrokes and len(keystrokes) > 0:
+                # Take the first forbidden key for the reason, formatting + to _
+                key_name = keystrokes[0].replace('+', '_')
+                violation_reason = f"forbidden_key_{key_name}"
+            
+            # 2. Face Boundaries
+            elif self._is_off_screen(face_screen_pos):
+                violation_reason = "face_off_screen"
                 
-            # Frequency Check
-            if not violation_reason and len(self.shift_timestamps) > 6:
-                violation_reason = "frantic eye movement"
+            # 3. Eye Boundaries
+            elif self._is_off_screen(eye_screen_pos):
+                violation_reason = "eyes_off_screen"
                 
+            # 4. Frequency
+            elif len(self.shift_timestamps) > self.freq_threshold:
+                violation_reason = "frantic_eye_movement"
+                
+            # 5. Duration (Lowest Priority)
+            else:
+                duration = current_time - self.state_start_time
+                if gaze_direction in ["Left", "Right", "Up"] and duration > self.side_threshold:
+                    violation_reason = f"{gaze_direction}_duration"
+                elif gaze_direction == "Down" and duration > self.down_threshold:
+                    violation_reason = f"{gaze_direction}_duration"
+                    
             # Trigger Execution
             if violation_reason:
                 self.is_recording = True
@@ -112,13 +152,13 @@ class SuspicionScoringProcessor:
                 self.current_violation_label = violation_reason
                 self.current_score = 100
                 
-                # Define video filename early for linkage
+                # Define video filename early for linkage in CSV
                 timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"{timestamp_str}_violation_{violation_reason}.mp4"
                 self.current_video_file = filename
                 self.recording_filename = filename
                 
-                # Copy 90 deque frames for pre-roll
+                # Snapshot the pre-roll (90 frames)
                 self.pre_roll_copy = [f.copy() for f in self.frame_buffer]
                 
                 # Clear shift history to avoid back-to-back frantic triggers
@@ -128,7 +168,7 @@ class SuspicionScoringProcessor:
             self.post_roll.append(frame.copy())
             
             if len(self.post_roll) >= 90:
-                # Trigger Feature 4: Threading
+                # Trigger Threading for Video Save
                 t = threading.Thread(
                     target=self._save_video_async,
                     args=(self.pre_roll_copy, self.post_roll, self.recording_reason, self.recording_filename),
@@ -145,7 +185,6 @@ class SuspicionScoringProcessor:
                 self.recording_reason = ""
                 self.recording_filename = ""
                 
-        # Feature 3: Visual Feedback Payload
         return {
             "is_recording": self.is_recording,
             "current_violation": self.recording_reason if self.is_recording else ""
@@ -161,18 +200,15 @@ class SuspicionScoringProcessor:
         first_frame = all_frames[0]
         height, width = first_frame.shape[:2]
         
-        # Change filename extension from .mp4 to .avi for better Windows compatibility
-        filename = filename.replace('.mp4', '.avi')
-        
-        # Use cv2.VideoWriter with XVID codec which is highly reliable on Windows
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        # Use cv2.VideoWriter with mp4v codec
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(filename, fourcc, 30.0, (width, height))
         
         for f in all_frames:
             out.write(f)
             
         out.release()
-        import os
+        
         abs_path = os.path.abspath(filename)
         print(f"[SuspicionScoring] Video evidence saved successfully to: {abs_path}")
         
@@ -193,10 +229,10 @@ class SuspicionScoringProcessor:
             self.current_video_file
         )
         
-        # Feature 4: Graceful Shutdown
+        # Graceful Shutdown
         with self._threads_lock:
             threads_copy = list(self.active_threads)
         for t in threads_copy:
             if t.is_alive():
-                print("[SuspicionScoring] Waiting for video save to finish...")
+                print(f"[SuspicionScoring] Waiting for video save to finish for thread {t.name}...")
                 t.join()
