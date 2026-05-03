@@ -158,6 +158,22 @@ class SuspicionScoringProcessor:
                 self.current_video_file = filename
                 self.recording_filename = filename
                 
+                # Force CSV log write immediately so every video has a corresponding row
+                self._log_state_to_csv(
+                    self.current_state_direction,
+                    self.state_start_time,
+                    current_time,
+                    self.current_violation_label,
+                    self.current_score,
+                    self.current_video_file
+                )
+                
+                # Reset the tracking state so the next block is fresh
+                self.state_start_time = current_time
+                self.current_violation_label = "normal"
+                self.current_score = 0
+                self.current_video_file = ""
+                
                 # Snapshot the pre-roll (90 frames)
                 self.pre_roll_copy = [f.copy() for f in self.frame_buffer]
                 
@@ -200,11 +216,18 @@ class SuspicionScoringProcessor:
         first_frame = all_frames[0]
         height, width = first_frame.shape[:2]
         
-        # Use cv2.VideoWriter with mp4v codec
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Force dimensions to be even numbers to prevent "green tinge" / alignment issues with H.264 codec
+        width = width if width % 2 == 0 else width - 1
+        height = height if height % 2 == 0 else height - 1
+        
+        # Use cv2.VideoWriter with H.264 codec
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')
         out = cv2.VideoWriter(filename, fourcc, 30.0, (width, height))
         
         for f in all_frames:
+            # Ensure frame matches the exact even dimensions
+            if f.shape[1] != width or f.shape[0] != height:
+                f = cv2.resize(f, (width, height))
             out.write(f)
             
         out.release()

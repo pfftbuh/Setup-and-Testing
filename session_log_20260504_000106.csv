@@ -1,0 +1,2 @@
+Gaze direction,Timestamp start,Timestamp finish,Violation label,Numerical behavioural score,Video Evidence File
+Center,2026-05-04 00:01:06.319,2026-05-04 00:01:29.546,eyes_off_screen,100,20260504_000127_violation_eyes_off_screen.avi
