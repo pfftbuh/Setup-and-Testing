@@ -7,6 +7,7 @@ import eye_calibrationprocessor as ecp
 import gaze_directionprocessor as gdp
 import suspicion_scoringprocessor as ssp
 import eye_screenposprocessor as esp
+import keypress_trackprocessor as ktp
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
@@ -16,8 +17,12 @@ axis_processor = fap.FaceAxisProcessor()
 eye_processor = etp.EyeLandmarkerProcessor()
 eye_calibrator = ecp.EyeCalibrationProcessor()
 gaze_processor = gdp.GazeDirectionProcessor()
-scoring_processor = ssp.SuspicionScoringProcessor()
+scoring_processor = ssp.SuspicionScoringProcessor(
+    side_threshold=3.0, down_threshold=5.0, freq_threshold=6, 
+    screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT
+)
 screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
+keypress_processor = ktp.KeypressTrackProcessor()
 
 cap = cv2.VideoCapture(0)
 avg_direction = None
@@ -73,6 +78,8 @@ while True:
         break
     
     frame = cv2.resize(frame, (1280, 720))
+    face_screenpos = None
+    eye_screenpos = None
 
     # ====================== FACE PROCESSING ======================
     face_frame = frame.copy()
@@ -163,7 +170,8 @@ while True:
     cv2.imshow("Eye Landmarks", eye_frame)
     # ===================== END OF EYE PROCESSING =====================
 
-    scoring_processor.update(frame, current_gaze)
+    keystrokes = keypress_processor.get_suspicious_keys()
+    scoring_processor.update(frame, current_gaze, eye_screenpos, face_screenpos, keystrokes)
     
         
 
