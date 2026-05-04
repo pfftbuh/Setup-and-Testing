@@ -29,13 +29,15 @@ class HeatmapProcessor:
         # 1. Create a blank single-channel float32 image
         accumulator = np.zeros((self.screen_height, self.screen_width), dtype=np.float32)
         
-        # 2. Accumulate points
+        # 2. Accumulate points — draw a filled circle per point for wider base coverage
+        point_radius = 5  # pixels; increase this for a larger initial coverage area
         for x, y in self.gaze_points:
-            accumulator[y, x] += 1.0
+            cv2.circle(accumulator, (x, y), point_radius, 1.0, thickness=-1)
             
         # 3. Apply a large Gaussian blur to smooth the points into a heatmap cloud
-        # 201 is a good large odd-numbered kernel size for a 1080p screen
-        blurred = cv2.GaussianBlur(accumulator, (201, 201), 0)
+        # Increase kernel size (must be odd) for a wider, softer spread
+        blur_kernel = 301  # increase this value for more spread
+        blurred = cv2.GaussianBlur(accumulator, (blur_kernel, blur_kernel), 0)
         
         # 4. Normalize to 0-255 range for color mapping
         max_val = np.max(blurred)
