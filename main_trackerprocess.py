@@ -7,7 +7,9 @@ import eye_calibrationprocessor as ecp
 import gaze_directionprocessor as gdp
 import suspicion_scoringprocessor as ssp
 import eye_screenposprocessor as esp
-
+import keypress_trackprocessor as ktp
+import heatmap_processor as hp
+import frame_bufferprocessor as fbp
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 
@@ -18,11 +20,16 @@ eye_calibrator = ecp.EyeCalibrationProcessor()
 gaze_processor = gdp.GazeDirectionProcessor()
 scoring_processor = ssp.SuspicionScoringProcessor()
 screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
+keypress_processor = ktp.KeypressTrackProcessor()
+heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 cap = cv2.VideoCapture(0)
+frame_buffer = fbp.FrameBufferProcessor(cap)
 avg_direction = None
 raw_eye_data = None
 current_gaze = 'Center'
+calibration_samples = []
+is_collecting_samples = False
 
 # DEBUGGING PURPOSES: This loop processes the video feed from the webcam, detects face and eye landmarks, 
 # estimates head pose, and displays the results in real-time. 
@@ -30,49 +37,29 @@ current_gaze = 'Center'
 # The estimated screen position is visualized on a separate frame for debugging purposes. 
 
 while True:
-
+    face_screenpos = None
+    eye_screenpos = None
+    
     key = cv2.waitKey(1) & 0xFF
 
-    if key == ord('c') and avg_direction is not None and raw_eye_data is not None:
+    if key == ord('c') and avg_direction is not None and raw_eye_data is not None and not is_collecting_samples:
         if eye_calibrator.calibration_stage == -1:
             eye_calibrator.next_stage()
             axis_processor.calibrate(avg_direction)
             continue
-        
-        print("Calibrated! Current pose set as zero.")
-        
-        samples = []
-        eye_calibrator.sample_count = 60  # Collect 60 samples for each calibration position to ensure stable calibration values.
-        # Collect 60 samples for each calibration position (center, up, down, left, right) to ensure stable calibration values.
-        while len(samples) < eye_calibrator.sample_count:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = cv2.resize(frame, (1280, 720))
-            eye_frame = frame.copy()
-            eye_results = eye_processor.process_frame(eye_frame)
-            eye_frame, raw_eye_data = eye_processor._draw_landmarks(eye_frame, eye_results)
-            
-            if raw_eye_data is not None:
-                samples.append(raw_eye_data)
-            
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
 
-        eye_calibrator.calibrate(samples)
-        
-        print(f"Calibration stage {eye_calibrator.calibration_stage} complete.")
-        eye_calibrator.next_stage()
+        print(f"Collecting samples for calibration stage {eye_calibrator.calibration_stage}... Look at the target position.")
+        eye_calibrator.sample_count = 60
+        calibration_samples = []
+        is_collecting_samples = True
     
 
     elif key == ord('q'):
         break
 
-    ret, frame = cap.read()
-    if not ret:
-        break
-    
-    frame = cv2.resize(frame, (1280, 720))
+    frame = frame_buffer.get_frame()
+    if frame is None:
+        continue
 
     # ====================== FACE PROCESSING ======================
     face_frame = frame.copy()
@@ -113,6 +100,11 @@ while True:
             
             # Weighted Screen Position based on the estimated screen position from both the head pose estimation and the eye tracking.
             weighted_screen_pos = gaze_processor.weighted_screen_position(face_screenpos, eye_screenpos)
+            
+            # Record point for heatmap
+            if weighted_screen_pos is not None:
+                heatmap_processor.add_point(weighted_screen_pos)
+                
             cv2.circle(screen_frame, (int(weighted_screen_pos[0]//2), int(weighted_screen_pos[1]//2)), 10, (255, 255, 0), -1)
             cv2.putText(screen_frame, f"Weighted Screen Pos ({weighted_screen_pos[0]:.2f}, {weighted_screen_pos[1]:.2f})", (int(weighted_screen_pos[0]//2) - 10, int(weighted_screen_pos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
@@ -163,9 +155,29 @@ while True:
     cv2.imshow("Eye Landmarks", eye_frame)
     # ===================== END OF EYE PROCESSING =====================
 
-    scoring_processor.update(frame, current_gaze)
+    # ====================== CALIBRATION SAMPLE COLLECTION ======================
+    if is_collecting_samples:
+        if raw_eye_data is not None:
+            calibration_samples.append(raw_eye_data)
+        if len(calibration_samples) >= eye_calibrator.sample_count:
+            eye_calibrator.calibrate(calibration_samples)
+            print(f"Calibration stage {eye_calibrator.calibration_stage} complete.")
+            eye_calibrator.next_stage()
+            calibration_samples = []
+            is_collecting_samples = False
+    # ===================== END OF CALIBRATION SAMPLE COLLECTION =====================
+
+    if eye_calibrator.calibration_stage == 5:
+        # Fetch suspicious keys
+        keystrokes = keypress_processor.get_suspicious_keys()
+        # Update suspicion scoring processor with the current frame, gaze direction, eye screen position, face screen position, and keystrokes.
+        scoring_processor.update(frame, current_gaze, eye_screenpos, face_screenpos, keystrokes)
     
         
 
+frame_buffer.stop()
 cap.release()
 cv2.destroyAllWindows()
+scoring_processor.cleanup()
+keypress_processor.cleanup()
+heatmap_processor.generate_heatmap()

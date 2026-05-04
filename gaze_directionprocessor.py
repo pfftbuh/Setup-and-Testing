@@ -4,7 +4,7 @@ class GazeDirectionProcessor:
     def __init__(self):
         self.avg_direction = None
 
-    def weighted_screen_position(self, screen_pos_face, screen_pos_eye, weight_face=0.5, weight_eye=0.5):
+    def weighted_screen_position(self, screen_pos_face, screen_pos_eye, weight_face=0.35, weight_eye=0.65):
         if screen_pos_face is None and screen_pos_eye is None:
             return None
         elif screen_pos_face is None:
