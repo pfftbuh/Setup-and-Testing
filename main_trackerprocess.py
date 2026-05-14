@@ -113,10 +113,7 @@ while True:
                 cv2.putText(screen_frame, f"Weighted Screen Pos ({weighted_screen_pos[0]:.2f}, {weighted_screen_pos[1]:.2f})", (int(weighted_screen_pos[0]//2) - 10, int(weighted_screen_pos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             if directionsval is not None:
-                if directionsval[0] != "Center":
-                    current_gaze = directionsval[0]
-                elif directionsval[1] != "Center":
-                    current_gaze = directionsval[1]
+                current_gaze = directionsval
                 
                 cv2.putText(screen_frame, f"Gaze Direction: ({directionsval[0]}, {directionsval[1]})", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 if directionsval[0] == "Up" and directionsval[1] == "Left":

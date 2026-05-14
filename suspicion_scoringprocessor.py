@@ -80,7 +80,13 @@ class SuspicionScoringProcessor:
         
         # Data Sanitization
         gaze_direction = "Center" # Default fallback
-        if isinstance(raw_gaze_direction, (list, tuple)) and len(raw_gaze_direction) > 0:
+        if isinstance(raw_gaze_direction, (list, tuple)) and len(raw_gaze_direction) == 2:
+            vert, horiz = raw_gaze_direction
+            if vert == "Center" and horiz == "Center":
+                gaze_direction = "Center"
+            else:
+                gaze_direction = f"{vert}-{horiz}"
+        elif isinstance(raw_gaze_direction, (list, tuple)) and len(raw_gaze_direction) > 0:
             gaze_direction = str(raw_gaze_direction[0])
         elif isinstance(raw_gaze_direction, str):
             gaze_direction = raw_gaze_direction
@@ -138,9 +144,9 @@ class SuspicionScoringProcessor:
             # 5. Duration (Lowest Priority)
             else:
                 duration = current_time - self.state_start_time
-                if gaze_direction in ["Left", "Right", "Up"] and duration > self.side_threshold:
+                if "Down" in gaze_direction and duration > self.down_threshold:
                     violation_reason = f"{gaze_direction}_duration"
-                elif gaze_direction == "Down" and duration > self.down_threshold:
+                elif gaze_direction != "Center" and duration > self.side_threshold:
                     violation_reason = f"{gaze_direction}_duration"
                     
             # Trigger Execution
