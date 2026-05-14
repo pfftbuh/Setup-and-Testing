@@ -7,10 +7,11 @@ import os
 from datetime import datetime
 
 class SuspicionScoringProcessor:
-    def __init__(self, side_threshold=3.0, down_threshold=5.0, freq_threshold=6, screen_width=1920, screen_height=1080):
+    def __init__(self, side_threshold=3.0, down_threshold=5.0, off_screen_threshold=1.5, freq_threshold=6, screen_width=1920, screen_height=1080):
         # Configuration
         self.side_threshold = side_threshold
         self.down_threshold = down_threshold
+        self.off_screen_threshold = off_screen_threshold
         self.freq_threshold = freq_threshold
         self.screen_width = screen_width
         self.screen_height = screen_height
@@ -26,6 +27,10 @@ class SuspicionScoringProcessor:
         self.current_violation_label = "normal"
         self.current_score = 0
         self.current_video_file = ""
+        
+        # Off-screen Tracking
+        self.face_off_start_time = None
+        self.eyes_off_start_time = None
         
         # State Machine Tracking
         self.shift_timestamps = collections.deque()
@@ -118,6 +123,19 @@ class SuspicionScoringProcessor:
         while self.shift_timestamps and current_time - self.shift_timestamps[0] > 60.0:
             self.shift_timestamps.popleft()
 
+        # Track off-screen durations
+        if self._is_off_screen(face_screen_pos):
+            if self.face_off_start_time is None:
+                self.face_off_start_time = current_time
+        else:
+            self.face_off_start_time = None
+            
+        if self._is_off_screen(eye_screen_pos):
+            if self.eyes_off_start_time is None:
+                self.eyes_off_start_time = current_time
+        else:
+            self.eyes_off_start_time = None
+
         violation_reason = None
 
         # Check thresholds only if not currently recording post-roll
@@ -130,11 +148,11 @@ class SuspicionScoringProcessor:
                 violation_reason = f"forbidden_key_{key_name}"
             
             # 2. Face Boundaries
-            elif self._is_off_screen(face_screen_pos):
+            elif self.face_off_start_time and (current_time - self.face_off_start_time) > self.off_screen_threshold:
                 violation_reason = "face_off_screen"
                 
             # 3. Eye Boundaries
-            elif self._is_off_screen(eye_screen_pos):
+            elif self.eyes_off_start_time and (current_time - self.eyes_off_start_time) > self.off_screen_threshold:
                 violation_reason = "eyes_off_screen"
                 
             # 4. Frequency
@@ -206,6 +224,13 @@ class SuspicionScoringProcessor:
                 self.pre_roll_copy = []
                 self.recording_reason = ""
                 self.recording_filename = ""
+                
+                # Reset off-screen and gaze timers so it doesn't instantly re-trigger
+                if self._is_off_screen(face_screen_pos):
+                    self.face_off_start_time = time.time()
+                if self._is_off_screen(eye_screen_pos):
+                    self.eyes_off_start_time = time.time()
+                self.state_start_time = time.time()
                 
         return {
             "is_recording": self.is_recording,
