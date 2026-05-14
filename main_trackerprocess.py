@@ -39,6 +39,7 @@ is_collecting_samples = False
 while True:
     face_screenpos = None
     eye_screenpos = None
+    directionsval = None
     
     key = cv2.waitKey(1) & 0xFF
 
@@ -90,8 +91,10 @@ while True:
             cv2.putText(screen_frame, f"Calib Down: {eye_calibrator.calibration_iris_boxheight_down:.4f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Left: {eye_calibrator.calibration_left:.4f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Right: {eye_calibrator.calibration_right:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
-            eye_screenpos = screen_pos_processor.process( eye_calibrator.calibrated_thresholds, raw_eye_data, directionsval)
+            #directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
+            result = screen_pos_processor.process(eye_calibrator.calibrated_thresholds, raw_eye_data)
+            if result is not None:
+                eye_screenpos, directionsval = result
 
             # Draw circle on the screen frame based on the estimated screen position from the eye tracking.
             if eye_screenpos is not None:
@@ -115,7 +118,7 @@ while True:
                 elif directionsval[1] != "Center":
                     current_gaze = directionsval[1]
                 
-                cv2.putText(screen_frame, f"Gaze Direction: ({directionsval[0]}({directionsval[2]}), {directionsval[1]}({directionsval[3]}))", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                cv2.putText(screen_frame, f"Gaze Direction: ({directionsval[0]}, {directionsval[1]})", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 if directionsval[0] == "Up" and directionsval[1] == "Left":
                    # Draw a rectangle in the top-left corner of the screen frame to indicate up-left gaze direction.
                    cv2.rectangle(screen_frame, (0, 0), (screen_frame.shape[1]//3, screen_frame.shape[0]//3), (255, 0, 0), 2) 
