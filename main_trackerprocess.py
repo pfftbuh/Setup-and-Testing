@@ -94,9 +94,10 @@ while True:
             eye_screenpos = screen_pos_processor.process( eye_calibrator.calibrated_thresholds, raw_eye_data, directionsval)
 
             # Draw circle on the screen frame based on the estimated screen position from the eye tracking.
-            cv2.circle(screen_frame, (int(eye_screenpos[0]//2), int(eye_screenpos[1]//2)), 10, (0, 0, 255), -1)   
-            # Eye Position test that follows the estimated screen position from the eye tracking. 
-            cv2.putText(screen_frame, f"Estimated Screen Pos(Eye) ({eye_screenpos[0]:.2f}, {eye_screenpos[1]:.2f})", (int(eye_screenpos[0]//2) - 10, int(eye_screenpos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            if eye_screenpos is not None:
+                cv2.circle(screen_frame, (int(eye_screenpos[0]//2), int(eye_screenpos[1]//2)), 10, (0, 0, 255), -1)   
+                # Eye Position test that follows the estimated screen position from the eye tracking. 
+                cv2.putText(screen_frame, f"Estimated Screen Pos(Eye) ({eye_screenpos[0]:.2f}, {eye_screenpos[1]:.2f})", (int(eye_screenpos[0]//2) - 10, int(eye_screenpos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             # Weighted Screen Position based on the estimated screen position from both the head pose estimation and the eye tracking.
             weighted_screen_pos = gaze_processor.weighted_screen_position(face_screenpos, eye_screenpos)
@@ -105,8 +106,8 @@ while True:
             if weighted_screen_pos is not None:
                 heatmap_processor.add_point(weighted_screen_pos)
                 
-            cv2.circle(screen_frame, (int(weighted_screen_pos[0]//2), int(weighted_screen_pos[1]//2)), 10, (255, 255, 0), -1)
-            cv2.putText(screen_frame, f"Weighted Screen Pos ({weighted_screen_pos[0]:.2f}, {weighted_screen_pos[1]:.2f})", (int(weighted_screen_pos[0]//2) - 10, int(weighted_screen_pos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                cv2.circle(screen_frame, (int(weighted_screen_pos[0]//2), int(weighted_screen_pos[1]//2)), 10, (255, 255, 0), -1)
+                cv2.putText(screen_frame, f"Weighted Screen Pos ({weighted_screen_pos[0]:.2f}, {weighted_screen_pos[1]:.2f})", (int(weighted_screen_pos[0]//2) - 10, int(weighted_screen_pos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             if directionsval is not None:
                 if directionsval[0] != "Center":
