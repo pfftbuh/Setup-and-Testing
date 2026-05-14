@@ -130,6 +130,7 @@ class FaceLandmarkerProcessor:
                     (0, 0, 255),
                     2,
                 )
+                frame = cv2.resize(frame, (600, 300), interpolation=cv2.INTER_AREA)
             if avg_direction is not None:
                 return frame, avg_direction
             else:

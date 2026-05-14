@@ -23,7 +23,7 @@ screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 keypress_processor = ktp.KeypressTrackProcessor()
 heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 frame_buffer = fbp.FrameBufferProcessor(cap)
 avg_direction = None
 raw_eye_data = None
@@ -42,7 +42,7 @@ while True:
     
     key = cv2.waitKey(1) & 0xFF
 
-    if key == ord('c') and avg_direction is not None and raw_eye_data is not None and not is_collecting_samples:
+    if key == ord('{') and avg_direction is not None and raw_eye_data is not None and not is_collecting_samples:
         if eye_calibrator.calibration_stage == -1:
             eye_calibrator.next_stage()
             axis_processor.calibrate(avg_direction)
@@ -54,7 +54,7 @@ while True:
         is_collecting_samples = True
     
 
-    elif key == ord('q'):
+    elif key == ord('}'):
         break
 
     frame = frame_buffer.get_frame()
@@ -143,6 +143,7 @@ while True:
                     # Draw a rectangle in the center of the screen frame to indicate center gaze direction.
                     cv2.rectangle(screen_frame, (screen_frame.shape[1]//3, screen_frame.shape[0]//3), (screen_frame.shape[1]*2//3, screen_frame.shape[0]*2//3), (255, 0, 0), 2)                    
 
+        screen_frame = cv2.resize(screen_frame, (600, 300), interpolation=cv2.INTER_AREA)
         cv2.imshow("Estimated Screen Position", screen_frame)
 
     # ===================== END OF ESTIMATED SCREEN POSITION DEBUGGING =========
@@ -152,6 +153,7 @@ while True:
     eye_frame = frame.copy()
     eye_results = eye_processor.process_frame(eye_frame)
     eye_frame, raw_eye_data = eye_processor._draw_landmarks(eye_frame, eye_results)
+    eye_frame = cv2.resize(eye_frame, (600, 300), interpolation=cv2.INTER_AREA)
     cv2.imshow("Eye Landmarks", eye_frame)
     # ===================== END OF EYE PROCESSING =====================
 
