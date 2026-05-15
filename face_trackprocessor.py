@@ -47,7 +47,7 @@ class FaceLandmarkerProcessor:
             if not results.face_landmarks:
                 cv2.putText(frame, "No face detected", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                return frame, None
+                return frame, None, None
             
             elif results.face_landmarks:
                 def landmark_to_np(landmark, w, h):
@@ -131,8 +131,10 @@ class FaceLandmarkerProcessor:
                     2,
                 )
                 frame = cv2.resize(frame, (600, 300), interpolation=cv2.INTER_AREA)
+            face_cx = (key_points['left'][0] + key_points['right'][0]) / 2
+            face_cy = (key_points['top'][1] + key_points['bottom'][1]) / 2
             if avg_direction is not None:
-                return frame, avg_direction
+                return frame, avg_direction, (face_cx, face_cy)
             else:
-                return frame, avg_direction == None
-            
+                return frame, None, (face_cx, face_cy)
+

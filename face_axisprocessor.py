@@ -7,6 +7,10 @@ class FaceAxisProcessor:
         self.calibration_offset_pitch = 0.0
         self._yaw_deg = 0.0
         self._pitch_deg = 0.0
+
+        # anchor offset in pixels applied to the final screen position estimate
+        self._anchor_offset_x = 0
+        self._anchor_offset_y = 0
         
         #specify degrees at which screen border will be reached
         self.yawDegrees = 25 # x degrees left or right
@@ -65,6 +69,29 @@ class FaceAxisProcessor:
         self.calibration_offset_yaw = -raw_yaw
         self.calibration_offset_pitch = -raw_pitch
 
+    def update_anchor_from_face_position(self, face_center_x, face_center_y, frame_width, frame_height):
+        """
+        Shift the screen position anchor based on where the face sits in the camera frame.
+        A face centered at (0.5, 0.5) produces no offset. Faces off-center push the
+        estimated gaze position in the same direction proportionally to the screen size.
+        
+        Args:
+            face_center_x: pixel x of the face center in the camera frame
+            face_center_y: pixel y of the face center in the camera frame
+            frame_width:   width of the camera frame in pixels
+            frame_height:  height of the camera frame in pixels
+        """
+        screen_w = 1920
+        screen_h = 1080
+
+        # Normalise face position to [-0.5, 0.5] relative to frame centre
+        norm_x = (face_center_x / frame_width) - 0.5
+        norm_y = (face_center_y / frame_height) - 0.5
+
+        # Map deviation directly onto screen space
+        self._anchor_offset_x = int(norm_x * screen_w)
+        self._anchor_offset_y = int(norm_y * screen_h)
+
     def get_estimated_screen_position(self):
         screen_w = 1920
         screen_h = 1080
@@ -74,6 +101,10 @@ class FaceAxisProcessor:
 
         # pitch in [-pitchDegrees, +pitchDegrees] maps to [screen_h, 0]  (up=positive=top of screen)
         screen_y = int(((self.pitchDegrees - self._pitch_deg) / (2 * self.pitchDegrees)) * screen_h)
+
+        # Apply anchor offset from face position in camera frame
+        screen_x += self._anchor_offset_x
+        screen_y += self._anchor_offset_y
 
         screen_x = max(0, min(screen_w - 1, screen_x))
         screen_y = max(0, min(screen_h - 1, screen_y))

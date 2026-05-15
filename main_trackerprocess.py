@@ -65,8 +65,9 @@ while True:
     # ====================== FACE PROCESSING ======================
     face_frame = frame.copy()
     results = processor.process_frame(face_frame)
-    output_frame, avg_direction = processor._draw_landmarks(face_frame, results)
+    output_frame, avg_direction, face_center = processor._draw_landmarks(face_frame, results)
     if avg_direction is not None:
+        axis_processor.update_anchor_from_face_position(*face_center, face_frame.shape[1], face_frame.shape[0])
         yaw, pitch = axis_processor.process(avg_direction)
         face_screenpos = axis_processor.get_estimated_screen_position()
         if yaw is not None and pitch is not None:
