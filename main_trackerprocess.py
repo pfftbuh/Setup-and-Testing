@@ -169,6 +169,7 @@ while True:
             eye_calibrator.next_stage()
             calibration_samples = []
             is_collecting_samples = False
+            continue
     # ===================== END OF CALIBRATION SAMPLE COLLECTION =====================
 
     if eye_calibrator.calibration_stage == 5:
