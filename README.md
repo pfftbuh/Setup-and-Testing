@@ -31,7 +31,6 @@ suspicion_scoringprocessor.py
 heatmap_processor.py
 keypress_trackprocessor.py
 frame_bufferprocessor.py
-file_creationprocessor.py
 face_landmarker.task          ← required MediaPipe model file
 requirements.txt
 ```
@@ -145,7 +144,7 @@ After the session ends (`}` to quit), the following output files are generated i
 
 ## System Architecture
 
-The system is composed of **14 modules**, each responsible for a distinct processing stage. Data flows from the webcam through detection, tracking, calibration, scoring, and output layers.
+The system is composed of **13 modules**, each responsible for a distinct processing stage. Data flows from the webcam through detection, tracking, calibration, scoring, and output layers.
 
 ```
 Webcam → FrameBufferProcessor
@@ -259,9 +258,4 @@ Detections are stored in a thread-safe buffer and retrieved each frame by the ma
 
 ### `frame_bufferprocessor.py` — Frame Buffer Processor
 Runs a dedicated background thread that continuously reads frames from the OpenCV `VideoCapture` object and stores the latest frame in a thread-safe buffer. This decouples frame acquisition from the processing loop, preventing the main loop from blocking on camera I/O and ensuring the freshest possible frame is always available.
-
----
-
-### `file_creationprocessor.py` — File Creation Processor
-A lightweight utility class for reading and writing JSON data files. Used internally to persist and reload calibration data (`calibration_data.json`). Supports creating a new file, checking if a file exists, and appending new records to an existing JSON array.
 
