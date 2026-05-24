@@ -19,7 +19,6 @@ Download all project files into a single folder. Ensure the following files are 
 
 ```
 main_trackerprocess.py          ← entry point (run this)
-OFFICIAL_EYETRACKER.py          ← legacy reference only (do not run)
 face_trackprocessor.py
 face_distanceprocessor.py
 face_axisprocessor.py
@@ -141,13 +140,12 @@ After the session ends (`}` to quit), the following output files are generated i
 | `session_log_<timestamp>.csv` | Event-based log of all gaze directions, violations, and durations |
 | `heatmap_<timestamp>.png` | Visual heatmap of screen gaze positions over the session |
 | `clip_<timestamp>.avi` | Video clip recorded around any detected suspicious behaviour event |
-| `calibration_data.json` | Saved calibration thresholds for the current user |
 
 ---
 
 ## System Architecture
 
-The system is composed of **15 modules**, each responsible for a distinct processing stage. Data flows from the webcam through detection, tracking, calibration, scoring, and output layers.
+The system is composed of **14 modules**, each responsible for a distinct processing stage. Data flows from the webcam through detection, tracking, calibration, scoring, and output layers.
 
 ```
 Webcam → FrameBufferProcessor
@@ -171,12 +169,7 @@ Webcam → FrameBufferProcessor
 ## Module Reference
 
 ### `main_trackerprocess.py` — Main Tracker Process *(entry point)*
-The current entry point of the application. This is the modular successor to `OFFICIAL_EYETRACKER.py` — all logic that originally lived in that single file has been split into dedicated processor modules, and this file orchestrates them. It initialises OpenCV's camera feed, instantiates every processor, and runs the main loop that reads frames, calls each processor in sequence, and renders the results. Press `{` to step through calibration and `}` to exit.
-
----
-
-### `OFFICIAL_EYETRACKER.py` — Legacy Reference *(do not run)*
-The original monolithic implementation from which the modular system was derived. All of its functionality — face tracking, eye gaze, calibration, screen position mapping, suspicion scoring — has since been extracted into the dedicated processor modules. This file is kept as a historical reference to understand the original single-file design. **It is not intended to be run directly.**
+The entry point of the application. Initialises OpenCV's camera feed, instantiates every processor module, and runs the main loop that reads frames, calls each processor in sequence, and renders the results. Press `{` to step through calibration and `}` to exit.
 
 ---
 
