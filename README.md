@@ -190,6 +190,19 @@ Using the second degree of polynomial gives the process a great balance between 
 ### `face_axisprocessor.py` — Face Axis Processor
 Computes the **yaw** (left/right rotation) and **pitch** (up/down tilt) of the head in degrees using five key facial landmarks: chin, nose tip, forehead, left cheek, and right cheek. Calibration offsets are applied so that looking straight ahead reads as 0°/0°. The resulting angles are mapped to an estimated screen position using configurable degree limits (default: ±25° yaw, ±12° pitch).
 
+#### Face-Position Anchor Offset
+When converting head-pose angles to a screen coordinate, the processor also accounts for where the face sits within the camera frame. Each frame, `update_anchor_from_face_position()` receives the face centre in pixels and the frame dimensions. It normalises the face position to a `[-0.5, 0.5]` range relative to the frame centre, then scales that deviation directly onto screen space (1920×1080):
+
+```
+norm_x = (face_center_x / frame_width)  - 0.5
+norm_y = (face_center_y / frame_height) - 0.5
+
+anchor_offset_x = norm_x * 1920
+anchor_offset_y = norm_y * 1080
+```
+
+These offsets are added to the angle-derived screen position inside `get_estimated_screen_position()` before the result is clamped to the screen bounds. A face perfectly centred in the camera frame produces zero offset; a face displaced to the right shifts the estimated gaze position right proportionally, correcting for the parallax-like error that would otherwise occur when the subject is not centred in front of the camera.
+
 ---
 
 ### `eye_trackprocessor.py` — Eye Track Processor
