@@ -23,7 +23,7 @@ screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 keypress_processor = ktp.KeypressTrackProcessor()
 heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 frame_buffer = fbp.FrameBufferProcessor(cap)
 avg_direction = None
 raw_eye_data = None
@@ -92,7 +92,6 @@ while True:
             cv2.putText(screen_frame, f"Calib Down: {eye_calibrator.calibration_iris_boxheight_down:.4f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Left: {eye_calibrator.calibration_left:.4f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.putText(screen_frame, f"Calib Right: {eye_calibrator.calibration_right:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            #directionsval = gaze_processor.update_direction(raw_eye_data, eye_calibrator.calibrated_thresholds)
             result = screen_pos_processor.process(eye_calibrator.calibrated_thresholds, raw_eye_data)
             if result is not None:
                 eye_screenpos, directionsval = result
@@ -104,7 +103,7 @@ while True:
                 cv2.putText(screen_frame, f"Estimated Screen Pos(Eye) ({eye_screenpos[0]:.2f}, {eye_screenpos[1]:.2f})", (int(eye_screenpos[0]//2) - 10, int(eye_screenpos[1]//2) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             # Weighted Screen Position based on the estimated screen position from both the head pose estimation and the eye tracking.
-            weighted_screen_pos = gaze_processor.weighted_screen_position(face_screenpos, eye_screenpos)
+            weighted_screen_pos, directionsval = gaze_processor.weighted_screen_position(face_screenpos, eye_screenpos)
             
             # Record point for heatmap
             if weighted_screen_pos is not None:
