@@ -15,7 +15,7 @@ import os
 import uuid
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
-SHOW_DEBUG_FRAMES = False # Set to True to display debug frames for face and eye landmarks.
+SHOW_DEBUG_FRAMES = True # Set to True to display debug frames for face and eye landmarks.
 
 while True:
     session_type = input("Select session type (1 = non-cheating, 2 = cheating): ").strip()
