@@ -17,9 +17,18 @@ SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 SHOW_DEBUG_FRAMES = False # Set to True to display debug frames for face and eye landmarks.
 
+while True:
+    session_type = input("Select session type (1 = non-cheating, 2 = cheating): ").strip()
+    if session_type in ("1", "2"):
+        break
+    print("Invalid selection. Enter 1 for non-cheating or 2 for cheating.")
+
 sessions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions")
 os.makedirs(sessions_dir, exist_ok=True)
-session_dir = os.path.join(sessions_dir, f"session_{uuid.uuid4().hex}")
+session_category = "non_cheating" if session_type == "1" else "cheating"
+session_category_dir = os.path.join(sessions_dir, session_category)
+os.makedirs(session_category_dir, exist_ok=True)
+session_dir = os.path.join(session_category_dir, f"session_{uuid.uuid4().hex}")
 os.makedirs(session_dir)
 
 processor = ftp.FaceLandmarkerProcessor()

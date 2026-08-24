@@ -104,6 +104,20 @@ Run the main tracker from the terminal:
 python main_trackerprocess.py
 ```
 
+Before tracking starts, select the session type when prompted:
+- `1` — non-cheating session
+- `2` — cheating session
+
+Session files are saved in a uniquely named folder under the selected category:
+
+```
+sessions/
+├── non_cheating/
+│   └── session_<id>/
+└── cheating/
+      └── session_<id>/
+```
+
 Two windows will open:
 - **Main feed** — shows the live webcam with face/eye landmarks overlaid
 - **Screen position debug view** — shows the estimated gaze position on a virtual screen grid
