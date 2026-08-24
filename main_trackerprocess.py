@@ -10,10 +10,12 @@ import eye_screenposprocessor as esp
 import keypress_trackprocessor as ktp
 import heatmap_processor as hp
 import frame_bufferprocessor as fbp
+import keyboard
 import os
 import uuid
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
+SHOW_DEBUG_FRAMES = False # Set to True to display debug frames for face and eye landmarks.
 
 sessions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions")
 os.makedirs(sessions_dir, exist_ok=True)
@@ -30,13 +32,14 @@ screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 keypress_processor = ktp.KeypressTrackProcessor()
 heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT, output_dir=session_dir)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 frame_buffer = fbp.FrameBufferProcessor(cap)
 avg_direction = None
 raw_eye_data = None
 current_gaze = 'Center'
 calibration_samples = []
 is_collecting_samples = False
+calibration_key_was_pressed = False
 
 # DEBUGGING PURPOSES: This loop processes the video feed from the webcam, detects face and eye landmarks, 
 # estimates head pose, and displays the results in real-time. 
@@ -48,21 +51,23 @@ while True:
     eye_screenpos = None
     directionsval = None
     
-    key = cv2.waitKey(1) & 0xFF
+    cv2.waitKey(1)
+    calibration_key_pressed = keyboard.is_pressed('{')
 
-    if key == ord('{') and avg_direction is not None and raw_eye_data is not None and not is_collecting_samples:
+    if calibration_key_pressed and not calibration_key_was_pressed and avg_direction is not None and raw_eye_data is not None and not is_collecting_samples:
         if eye_calibrator.calibration_stage == -1:
             eye_calibrator.next_stage()
             axis_processor.calibrate(avg_direction)
+            calibration_key_was_pressed = calibration_key_pressed
             continue
 
         print(f"Collecting samples for calibration stage {eye_calibrator.calibration_stage}... Look at the target position.")
         eye_calibrator.sample_count = 60
         calibration_samples = []
         is_collecting_samples = True
-    
+    calibration_key_was_pressed = calibration_key_pressed
 
-    elif key == ord('}'):
+    if keyboard.is_pressed('}'):
         break
 
     frame = frame_buffer.get_frame()
@@ -81,7 +86,8 @@ while True:
             cv2.putText(output_frame, f"Yaw: {yaw:.2f} deg", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(output_frame, f"Pitch: {pitch:.2f} deg", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    cv2.imshow("Face Landmarks", output_frame)
+    if SHOW_DEBUG_FRAMES:
+        cv2.imshow("Face Landmarks", output_frame)
     # ===================== END OF FACE PROCESSING ======================
     
     # ===================== ESTIMATED SCREEN POSITION DEBUGGING =========
@@ -162,7 +168,8 @@ while True:
     eye_results = eye_processor.process_frame(eye_frame)
     eye_frame, raw_eye_data = eye_processor._draw_landmarks(eye_frame, eye_results)
     eye_frame = cv2.resize(eye_frame, (600, 300), interpolation=cv2.INTER_AREA)
-    cv2.imshow("Eye Landmarks", eye_frame)
+    if SHOW_DEBUG_FRAMES:
+        cv2.imshow("Eye Landmarks", eye_frame)
     # ===================== END OF EYE PROCESSING =====================
 
     # ====================== CALIBRATION SAMPLE COLLECTION ======================
