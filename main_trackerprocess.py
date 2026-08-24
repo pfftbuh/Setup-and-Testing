@@ -10,18 +10,25 @@ import eye_screenposprocessor as esp
 import keypress_trackprocessor as ktp
 import heatmap_processor as hp
 import frame_bufferprocessor as fbp
+import os
+import uuid
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
+
+sessions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions")
+os.makedirs(sessions_dir, exist_ok=True)
+session_dir = os.path.join(sessions_dir, f"session_{uuid.uuid4().hex}")
+os.makedirs(session_dir)
 
 processor = ftp.FaceLandmarkerProcessor()
 axis_processor = fap.FaceAxisProcessor()
 eye_processor = etp.EyeLandmarkerProcessor()
 eye_calibrator = ecp.EyeCalibrationProcessor()
 gaze_processor = gdp.GazeDirectionProcessor()
-scoring_processor = ssp.SuspicionScoringProcessor()
+scoring_processor = ssp.SuspicionScoringProcessor(output_dir=session_dir)
 screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 keypress_processor = ktp.KeypressTrackProcessor()
-heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
+heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT, output_dir=session_dir)
 
 cap = cv2.VideoCapture(1)
 frame_buffer = fbp.FrameBufferProcessor(cap)

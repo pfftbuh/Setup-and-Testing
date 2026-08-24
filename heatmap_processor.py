@@ -4,9 +4,11 @@ import os
 from datetime import datetime
 
 class HeatmapProcessor:
-    def __init__(self, screen_width=1920, screen_height=1080):
+    def __init__(self, screen_width=1920, screen_height=1080, output_dir=None):
         self.screen_width = screen_width
         self.screen_height = screen_height
+        self.output_dir = output_dir or os.getcwd()
+        os.makedirs(self.output_dir, exist_ok=True)
         self.gaze_points = []
         
     def add_point(self, screen_pos):
@@ -59,7 +61,7 @@ class HeatmapProcessor:
         # 6. Save the image
         if output_filename is None:
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"session_heatmap_{timestamp_str}.png"
+            output_filename = os.path.join(self.output_dir, f"session_heatmap_{timestamp_str}.png")
             
         cv2.imwrite(output_filename, heatmap_img)
         abs_path = os.path.abspath(output_filename)
