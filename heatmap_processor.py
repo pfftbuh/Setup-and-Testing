@@ -38,7 +38,7 @@ class HeatmapProcessor:
             
         # 3. Apply a large Gaussian blur to smooth the points into a heatmap cloud
         # Increase kernel size (must be odd) for a wider, softer spread
-        blur_kernel = 301  # increase this value for more spread // Originally 301 as of 2024-06-05
+        blur_kernel = 271  # increase this value for more spread // Originally 301 as of 2024-06-05
         if blur_kernel % 2 == 0:
             blur_kernel += 1  # Ensure kernel size is odd
         blurred = cv2.GaussianBlur(accumulator, (blur_kernel, blur_kernel), 0)
