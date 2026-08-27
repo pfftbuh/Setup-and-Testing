@@ -64,6 +64,30 @@ The current training approach is also a reasonable baseline. It uses a Random Fo
 
 Nevertheless, the dataset is small relative to the number of predictors. With 97 sessions and 79 predictors, the model may overfit, and cross-validation results may vary considerably depending on the sampled sessions. Therefore, the current dataset should be treated as an exploratory or proof-of-concept dataset rather than sufficient evidence for deployment.
 
+## Model Trainer Results
+
+The model trainer was executed using the complete dataset. It trained a calibrated Random Forest classifier using stratified five-fold cross-validation. The reported cross-validated results were:
+
+| Metric | Result |
+|---|---:|
+| Cross-validated accuracy | 0.948 |
+| Cross-validated ROC-AUC | 0.980 |
+
+The classification report was:
+
+| Class | Precision | Recall | F1-score | Support |
+|---|---:|---:|---:|---:|
+| Non-cheating | 0.94 | 0.96 | 0.95 | 49 |
+| Cheating | 0.96 | 0.94 | 0.95 | 48 |
+| Macro average | 0.95 | 0.95 | 0.95 | 97 |
+| Weighted average | 0.95 | 0.95 | 0.95 | 97 |
+
+The overall cross-validated accuracy was 0.95, with similar precision, recall, and F1-scores for both classes. This indicates that the current feature set can separate the two classes effectively within the cross-validation procedure. The ROC-AUC of 0.98 also indicates strong ranking performance across classification thresholds.
+
+These results should be interpreted cautiously. They are cross-validated estimates generated from only 97 sessions, not results from a completely independent test set. They may therefore be optimistic if sessions from the same participant or recording conditions appear in both training and validation folds, or if any feature is closely related to the labeling procedure. Independent participant-level or future-session testing is still required.
+
+After training, the model artifact was saved as `suspicion_model.joblib`, and the feature order used during training was saved as `feature_columns.json`. These files support consistent feature alignment during session-level prediction.
+
 ## Validation Risks and Limitations
 
 The following issues should be addressed before drawing strong conclusions from model performance:
