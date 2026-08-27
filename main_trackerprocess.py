@@ -41,7 +41,7 @@ screen_pos_processor = esp.EyeScreenPosProcessor(SCREEN_WIDTH, SCREEN_HEIGHT)
 keypress_processor = ktp.KeypressTrackProcessor()
 heatmap_processor = hp.HeatmapProcessor(SCREEN_WIDTH, SCREEN_HEIGHT, output_dir=session_dir)
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 frame_buffer = fbp.FrameBufferProcessor(cap)
 avg_direction = None
 raw_eye_data = None
