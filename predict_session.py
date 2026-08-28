@@ -1,7 +1,10 @@
 import argparse
 import json
 import os
+import uuid
 import joblib
+import cv2
+import numpy as np
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
@@ -10,6 +13,38 @@ import heatmap_feature_extractor as hfe
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "suspicion_model.joblib")
 FEATURE_COLUMNS_PATH = os.path.join(BASE_DIR, "feature_columns.json")
+PREDICTIONS_ROOT = os.path.join(BASE_DIR, "predicted_sessions")
+
+
+def save_prediction_outputs(session_dir, features, feature_columns, label, confidence,
+                            probability_non_cheating, probability_cheating):
+    prediction_dir = os.path.join(
+        PREDICTIONS_ROOT,
+        f"predicted_session_{uuid.uuid4().hex}",
+    )
+    os.makedirs(prediction_dir, exist_ok=False)
+
+    grid_values = [features.get(f"grid_cell_{i}", 0.0) for i in range(64)]
+    grid = np.array(grid_values, dtype=np.float32).reshape(8, 8)
+    grid_image = cv2.normalize(grid, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    grid_image = cv2.applyColorMap(grid_image, cv2.COLORMAP_JET)
+    cv2.imwrite(os.path.join(prediction_dir, "gaze_grid_8x8.png"), grid_image)
+
+    prediction_values = {
+        "source_session": os.path.abspath(session_dir),
+        "predicted_label": label,
+        "confidence": float(confidence),
+        "probability_non_cheating": float(probability_non_cheating),
+        "probability_cheating": float(probability_cheating),
+        "grid_size": 8,
+        "grid_values": grid_values,
+        "feature_columns": feature_columns,
+    }
+    with open(os.path.join(prediction_dir, "predicted_values.json"), "w", encoding="utf-8") as f:
+        json.dump(prediction_values, f, indent=2)
+
+    print(f"[Predictor] Saved prediction outputs to {prediction_dir}")
+    return prediction_dir
 
 
 def predict_session(session_dir):
@@ -39,6 +74,15 @@ def predict_session(session_dir):
     print(
         f"[Predictor] Confidence - cheating: {probability_cheating * 100:.1f}%, "
         f"non-cheating: {probability_non_cheating * 100:.1f}%"
+    )
+    save_prediction_outputs(
+        session_dir,
+        features,
+        feature_columns,
+        label,
+        confidence,
+        probability_non_cheating,
+        probability_cheating,
     )
     return label, confidence
 
