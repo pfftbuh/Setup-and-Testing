@@ -4,6 +4,85 @@ This serves as a guide to the usage, setup, and system framework and architectur
 
 ---
 
+## End-to-End Process
+
+The project works in two connected phases: it first records and analyses an
+exam session, then converts the saved session into data that can be used to
+train or apply a machine-learning classifier. The process begins when
+`main_trackerprocess.py` opens the webcam and asks whether the session should
+be labelled `non_cheating` or `cheating`. Every session is saved in a unique
+directory under the corresponding folder in `sessions/`. This directory is
+the unit used by the rest of the pipeline.
+
+During each frame, `FrameBufferProcessor` obtains the newest camera image,
+while the face and eye processors detect landmarks, estimate head pose, track
+iris movement, and calculate eye-based gaze. Calibration establishes the
+subject's centre, up, down, left, and right eye measurements. The calibrated
+eye position is smoothed and combined with the head-based screen position by
+`GazeDirectionProcessor`, producing both an estimated screen coordinate and a
+discrete gaze direction such as `Center`, `Left`, or `Down`.
+
+The resulting gaze direction is passed to `SuspicionScoringProcessor`, which
+tracks how long the subject looks away, looks down, moves their eyes rapidly,
+or leaves the camera view. `KeypressTrackProcessor` supplies suspicious global
+keyboard events such as application switching or clipboard shortcuts. When a
+rule is triggered, the scorer records an event in
+`session_log_<timestamp>.csv` and saves video evidence with a pre-roll and
+post-roll. At the same time, `HeatmapProcessor` accumulates screen-position
+points. When the session ends, it turns those points into a blurred,
+colour-mapped `session_heatmap_<timestamp>.png`.
+
+The two files required by the machine-learning pipeline are therefore the
+session heatmap and the suspicion-scoring CSV. `dataset_builder.py` visits
+every `session_*` directory in both label folders. For each session it calls
+`extract_session_features()`; sessions missing either required file are
+skipped. A valid session becomes one row containing numeric heatmap features,
+numeric behaviour features, its folder name as `session_id`, and its folder
+label (`1` for cheating or `0` for non-cheating). These rows are written to
+`features.csv`.
+
+When `heatmap_feature_extractor.py` processes the PNG, it first reconstructs
+an approximate intensity map. The heatmap was saved using OpenCV's JET colour
+map, so `build_jet_lut()` recreates the 256-colour lookup table and
+`recover_intensity_map()` uses a nearest-colour `cKDTree` search to convert
+each pixel back to an intensity from 0 to 255. Pure black pixels are treated
+as zero density because they represent areas where no gaze points were
+recorded.
+
+`extract_heatmap_features()` then describes the spatial distribution of gaze.
+It calculates the normalised gaze centroid, horizontal and vertical spread,
+the elongation of the distribution, entropy, the concentration of the
+strongest 5 percent of pixels (`peak_ratio`), and the proportion of pixels
+above intensity 25 (`coverage_ratio`). It also resizes the map to an 8x8 grid
+and normalises the 64 cells as probabilities, producing
+`grid_cell_0` through `grid_cell_63`. If the recovered map has no density, a
+complete set of zero-valued heatmap features is returned instead.
+
+`extract_csv_features()` reads the event log and categorises each violation
+label as `frantic_eye_movement`, `forbidden_key`, `off_screen`, `duration`,
+or `normal`. It parses each event's timestamps, counts the categories,
+counts the total transitions, adds the duration of non-`Center` gaze, and
+calculates the non-centre percentage over the session span. It also calculates
+`violation_rate` as the number of violation rows divided by the total number
+of log rows. The heatmap and CSV dictionaries are combined into the single
+feature row used by the dataset builder.
+
+After `features.csv` has been built, `train_model.py` removes `session_id` and
+`label` from the input features and trains a calibrated random forest. Five-
+fold stratified cross-validation reports accuracy, ROC-AUC, and a
+classification report. The final model is then refitted using all available
+session rows and saved as `suspicion_model.joblib`; the exact feature order is
+saved in `feature_columns.json`.
+
+Finally, `predict_session.py` loads those two model artifacts, extracts the
+features from one selected session, rebuilds a one-row pandas DataFrame in the
+stored feature order, and obtains probabilities from the classifier. A
+cheating probability of at least 0.5 produces the `cheating` label; otherwise
+the result is `non_cheating`. The script prints both class probabilities and
+the confidence of the selected label.
+
+---
+
 ## Step-by-Step Setup
 
 ### Prerequisites
@@ -318,7 +397,9 @@ python dataset_builder.py
 `dataset_builder.py` scans both category folders and writes `features.csv`.
 Each row represents one session and contains the extracted features, the
 session ID, and the numeric label (`1` for cheating, `0` for non-cheating).
-Sessions missing either required artifact are skipped.
+Sessions missing either required artifact are skipped. The output contains
+one row per usable session, with 79 extracted numeric features followed by
+the session metadata columns.
 
 ### Train the model
 
@@ -365,6 +446,9 @@ normalised spread on both axes, an elongation ratio, entropy, peak ratio,
 coverage ratio, and an 8x8 occupancy grid. CSV features include counts for
 `frantic_eye_movement`, `forbidden_key`, `off_screen`, and `duration`, plus
 transition count, percentage of non-centre gaze time, and violation rate.
+The extractor uses the first file returned for each matching heatmap or CSV
+pattern; a session should therefore contain one corresponding heatmap and one
+corresponding log.
 
 ## Python API Summary
 
