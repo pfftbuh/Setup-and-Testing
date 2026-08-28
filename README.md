@@ -19,6 +19,10 @@ Download all project files into a single folder. Ensure the following files are 
 
 ```
 main_trackerprocess.py          ← entry point (run this)
+dataset_builder.py              ← build ML features from saved sessions
+train_model.py                  ← train and save the suspicion classifier
+predict_session.py              ← classify one saved session
+heatmap_feature_extractor.py    ← extract heatmap and behaviour features
 face_trackprocessor.py
 face_distanceprocessor.py
 face_axisprocessor.py
@@ -79,6 +83,10 @@ This installs the following libraries:
 | `keyboard` | Global keyboard hotkey monitoring |
 | `sounddevice` | Audio support (reserved for future alerts) |
 | `pillow` | Image processing utilities |
+| `pandas` | Tabular feature construction and model input |
+| `scikit-learn` | Random forest training, calibration, validation, and metrics |
+| `scipy` | Efficient heatmap colour-map lookup with `cKDTree` |
+| `joblib` | Save and load the trained model |
 
 ---
 
@@ -151,8 +159,11 @@ After the session ends (`}` to quit), the following output files are generated i
 | File | Description |
 |---|---|
 | `session_log_<timestamp>.csv` | Event-based log of all gaze directions, violations, and durations |
-| `heatmap_<timestamp>.png` | Visual heatmap of screen gaze positions over the session |
-| `clip_<timestamp>.avi` | Video clip recorded around any detected suspicious behaviour event |
+| `session_heatmap_<timestamp>.png` | Colour-mapped heatmap of screen gaze positions over the session |
+| `<timestamp>_violation_<reason>.mp4` | Video evidence with pre-roll and post-roll around a suspicious event |
+
+Each session is self-contained under its category directory, which allows the
+same files to be reviewed manually or used by the machine-learning pipeline.
 
 ---
 
@@ -266,7 +277,7 @@ When a violation is detected, it:
 ---
 
 ### `heatmap_processor.py` — Heatmap Processor
-Accumulates all gaze screen-position points recorded during the session. On exit, generates a Gaussian-blurred heatmap image showing where the subject looked most frequently. The output is saved as a colour-mapped PNG file (`heatmap_<timestamp>.png`).
+Accumulates all gaze screen-position points recorded during the session. On exit, generates a Gaussian-blurred heatmap image showing where the subject looked most frequently. The output is saved as a colour-mapped PNG file (`session_heatmap_<timestamp>.png`).
 
 ---
 
@@ -285,4 +296,89 @@ Detections are stored in a thread-safe buffer and retrieved each frame by the ma
 
 ### `frame_bufferprocessor.py` — Frame Buffer Processor
 Runs a dedicated background thread that continuously reads frames from the OpenCV `VideoCapture` object and stores the latest frame in a thread-safe buffer. This decouples frame acquisition from the processing loop, preventing the main loop from blocking on camera I/O and ensuring the freshest possible frame is always available.
+
+---
+
+## Machine-Learning Pipeline
+
+The repository includes a session-level classifier that combines spatial gaze
+patterns from the heatmap with behavioural events from the suspicion-scoring
+CSV. Sessions must contain both a `session_heatmap_*.png` file and a
+`session_log_*.csv` file to be included.
+
+### Build the feature dataset
+
+After collecting labelled sessions under `sessions/cheating/` and
+`sessions/non_cheating/`, run:
+
+```bash
+python dataset_builder.py
+```
+
+`dataset_builder.py` scans both category folders and writes `features.csv`.
+Each row represents one session and contains the extracted features, the
+session ID, and the numeric label (`1` for cheating, `0` for non-cheating).
+Sessions missing either required artifact are skipped.
+
+### Train the model
+
+```bash
+python train_model.py
+```
+
+Training uses a calibrated `RandomForestClassifier` with five-fold stratified
+cross-validation. It prints cross-validated accuracy, ROC-AUC, and a
+classification report, then saves:
+
+| File | Description |
+|---|---|
+| `suspicion_model.joblib` | Trained calibrated classifier used for inference |
+| `feature_columns.json` | Feature names and the order expected by the model |
+
+Run training again whenever `features.csv` changes.
+
+### Predict one session
+
+```bash
+python predict_session.py sessions/cheating/session_<id>
+```
+
+The predictor loads the saved model and feature-column order, extracts the
+session features, supplies them as a named pandas `DataFrame`, and prints the
+predicted label and confidence. It returns `(label, confidence)` when called
+from Python, or `None` when the session is missing a heatmap or CSV log.
+
+## Feature Extraction Reference
+
+The functions in `heatmap_feature_extractor.py` can also be imported directly:
+
+| Function | Purpose |
+|---|---|
+| `build_jet_lut()` | Build the lookup table for OpenCV's JET colour map |
+| `recover_intensity_map(heatmap_img)` | Recover a density surrogate from a saved heatmap image |
+| `extract_heatmap_features(intensity_map, grid_size=8)` | Calculate centroid, spread, elongation, entropy, peak, coverage, and grid-cell features |
+| `extract_csv_features(csv_path)` | Calculate violation counts, gaze transitions, non-centre time, and violation rate |
+| `extract_session_features(session_dir)` | Combine heatmap and CSV features for one session |
+
+The generated heatmap features include normalised centroid coordinates,
+normalised spread on both axes, an elongation ratio, entropy, peak ratio,
+coverage ratio, and an 8x8 occupancy grid. CSV features include counts for
+`frantic_eye_movement`, `forbidden_key`, `off_screen`, and `duration`, plus
+transition count, percentage of non-centre gaze time, and violation rate.
+
+## Python API Summary
+
+The main callable entry points are:
+
+| Function | Module | Returns |
+|---|---|---|
+| `build_dataset()` | `dataset_builder.py` | A pandas `DataFrame`, or `None` when no usable sessions are found |
+| `train_model()` | `train_model.py` | Saves the trained model and feature-column metadata |
+| `predict_session(session_dir)` | `predict_session.py` | `(label, confidence)`, or `None` for incomplete sessions |
+| `FaceAxisProcessor.process(avg_direction)` | `face_axisprocessor.py` | Calibrated yaw and pitch |
+| `FaceAxisProcessor.get_estimated_screen_position()` | `face_axisprocessor.py` | Clamped `(x, y)` screen coordinates |
+| `GazeDirectionProcessor.weighted_screen_position(face, eye)` | `gaze_directionprocessor.py` | Blended screen position and 3x3 grid label |
+| `HeatmapProcessor.add_point(screen_pos)` | `heatmap_processor.py` | Adds a bounded gaze point to the session |
+| `HeatmapProcessor.generate_heatmap()` | `heatmap_processor.py` | Saved heatmap path, or `None` when no points exist |
+| `SuspicionScoringProcessor.update(...)` | `suspicion_scoringprocessor.py` | Current recording and violation state |
 
