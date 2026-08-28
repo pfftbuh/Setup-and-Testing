@@ -427,7 +427,21 @@ python predict_session.py sessions/cheating/session_<id>
 The predictor loads the saved model and feature-column order, extracts the
 session features, supplies them as a named pandas `DataFrame`, and prints the
 predicted label and confidence. It returns `(label, confidence)` when called
-from Python, or `None` when the session is missing a heatmap or CSV log.
+from Python, or `None` when the session is missing a heatmap or CSV log. After
+a successful prediction, it also creates a unique output directory:
+
+```text
+predicted_sessions/
+└── predicted_session_<uuid>/
+      ├── gaze_grid_8x8.png
+      └── predicted_values.json
+```
+
+`gaze_grid_8x8.png` is a colour-mapped visualisation of the 64 extracted grid
+probabilities. `predicted_values.json` stores the source session, predicted
+label, confidence, both class probabilities, grid size, all 64 grid values,
+and the feature-column order used for prediction. The original return value
+of `predict_session()` is unchanged.
 
 ## Feature Extraction Reference
 
@@ -449,6 +463,102 @@ transition count, percentage of non-centre gaze time, and violation rate.
 The extractor uses the first file returned for each matching heatmap or CSV
 pattern; a session should therefore contain one corresponding heatmap and one
 corresponding log.
+
+### Heatmap feature calculations
+
+`extract_heatmap_features()` receives a two-dimensional intensity map. Each
+pixel is treated as a weighted gaze observation: a brighter pixel contributes
+more strongly to the calculations than a darker pixel. The function first
+converts the values to `float64` and calculates `total_mass`, the sum of all
+pixel intensities. If this value is zero, the function returns a complete set
+of zero-valued features because there is no gaze density from which to
+calculate a position or distribution.
+
+For a usable map, OpenCV calculates image moments. The zeroth moment, `m00`,
+is the total weighted intensity and acts as the denominator for the weighted
+averages. The first moments, `m10` and `m01`, give the gaze centroid:
+
+```text
+centroid_x = m10 / m00
+centroid_y = m01 / m00
+```
+
+The centroid is divided by the image width and height to produce
+`centroid_x_norm` and `centroid_y_norm`. These values are resolution-
+independent: `0` represents the left or top edge, `0.5` is approximately the
+middle, and `1` represents the right or bottom edge.
+
+The central moments `mu20` and `mu02` describe the horizontal and vertical
+spread around the centroid. Dividing them by `m00` produces weighted
+variances:
+
+```text
+var_x = mu20 / m00
+var_y = mu02 / m00
+```
+
+The square roots produce standard deviations, which are then normalised by
+the image dimensions to produce `spread_x` and `spread_y`. Small values mean
+the gaze is concentrated near the centroid; larger values mean it is spread
+across more of the screen. The mixed central moment `mu11` measures whether
+horizontal and vertical deviations occur together and is used as the
+covariance value `cov_xy`.
+
+The covariance matrix is formed as:
+
+```text
+[ var_x   cov_xy ]
+[ cov_xy  var_y  ]
+```
+
+`np.linalg.eigvalsh()` calculates its two eigenvalues. Each eigenvalue is the
+variance along one principal direction of the gaze distribution. The smaller
+value represents the narrow direction and the larger value represents the
+widest direction. Their ratio becomes `elongation_ratio`:
+
+```text
+elongation_ratio = largest_eigenvalue / smallest_eigenvalue
+```
+
+A ratio near `1` means the distribution is similarly wide in both directions.
+A large ratio means it is stretched along one direction. Eigenvalues are
+clipped to a minimum of `1e-9` before division so a highly concentrated map
+cannot cause division by zero.
+
+To describe the spatial distribution in a compact and consistent format, the
+intensity map is resized to an 8x8 grid using area interpolation. The 64 grid
+values are divided by their sum, creating probabilities that represent the
+relative gaze activity in each region. They are stored as
+`grid_cell_0` through `grid_cell_63`, in row-major order from the top-left
+cell to the bottom-right cell.
+
+The grid probabilities are also used to calculate entropy:
+
+```text
+entropy = -sum(p * log2(p))
+```
+
+Zero-probability cells are ignored because `log2(0)` is undefined. Low entropy
+means gaze is concentrated in a few grid regions; high entropy means gaze is
+distributed more evenly across the grid.
+
+`peak_ratio` measures hotspot concentration. The intensity pixels are sorted
+from brightest to darkest, the brightest 5 percent are selected, and their
+intensity is divided by `total_mass`:
+
+```text
+peak_ratio = intensity of brightest 5% of pixels / total_mass
+```
+
+A high value indicates that much of the gaze density is concentrated in a
+small number of hotspots. Finally, `coverage_ratio` counts the pixels whose
+intensity is greater than `25` and divides by the total number of pixels. It
+therefore measures how much of the image contains meaningful recovered gaze
+density.
+
+Together, the eight global heatmap features and 64 grid probabilities produce
+72 heatmap features. `extract_csv_features()` adds seven behavioural features,
+so each complete session contributes 79 numeric model features.
 
 ## Python API Summary
 
