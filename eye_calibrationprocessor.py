@@ -89,15 +89,15 @@ class EyeCalibrationProcessor:
             print("Calibration already complete. No more stages.")
 
         if self.calibration_stage == 0:
-            print("Starting eye calibration. Please look at the center and press 'c' to capture.")
+            print("Starting eye calibration. Please look at the center and press '{' to capture.")
         elif self.calibration_stage == 1:
-            print("Please look up and press 'c' to capture.")
+            print("Please look up and press '{' to capture.")
         elif self.calibration_stage == 2:
-            print("Please look down and press 'c' to capture.")
+            print("Please look down and press '{' to capture.")
         elif self.calibration_stage == 3:
-            print("Please look left and press 'c' to capture.")
+            print("Please look left and press '{' to capture.")
         elif self.calibration_stage == 4:
-            print("Please look right and press 'c' to capture.")
+            print("Please look right and press '{' to capture.")
         elif self.calibration_stage == 5:
             self.calibration_h_center = np.mean(self.calibration_h_center_values) if self.calibration_h_center_values else 0.0
             self.calibration_v_center = np.mean(self.calibration_v_center_values) if self.calibration_v_center_values else 0.0
@@ -128,6 +128,6 @@ class EyeCalibrationProcessor:
             print(f"Iris Boxheight Center: ({self.calibration_iris_boxheight_center:.4f}), Up: ({self.calibration_iris_boxheight_up:.4f}), Down: ({self.calibration_iris_boxheight_down:.4f})")
             self.calibrated = True
         elif self.calibration_stage > 5:
-            print("Calibration already complete. No more stages.")
+            print("Calibration already complete. No more stages. Press '}' to end session.")
 
 
