@@ -1,0 +1,372 @@
+MAKITEST: Thesis-Ready Consolidated Summary
+===========================================
+
+1. Project Overview
+-------------------
+MAKITEST is a suspicious exam behavior detection system designed to monitor online exam takers through webcam-based gaze tracking and behavioral analysis. It estimates head pose and gaze direction, identifies suspicious patterns such as looking away from the screen, rapid gaze shifts, prolonged off-screen behavior, and forbidden keyboard shortcuts, and records those behaviors in real time. The overall objective is to flag potentially suspicious exam conduct while generating session-level records that can be used by a machine learning classifier.
+
+The project is a full end-to-end pipeline that begins with webcam capture and ends with a session-level classification decision. It tracks facial landmarks, estimates head position and eye gaze, calibrates gaze relative to screen coordinates, records suspicious events, generates heatmaps, and organizes the output into session artifacts for training and inference. The system is designed to support remote proctoring research scenarios in which a subject sits in front of a webcam while the software evaluates gaze behavior, head movement, and keyboard activity.
+
+At present, MAKITEST is best understood as a research prototype and exploratory monitoring framework rather than a fully deployed production proctoring system. It demonstrates feasibility and technical coherence, but it also makes explicit the limitations of early-stage applied AI systems: small sample sizes, feature redundancy, and dependence on carefully controlled experimental conditions.
+
+2. Core Research Motivation
+---------------------------
+The primary motivation is to detect suspicious exam behavior without relying on a single signal. Instead, the system combines multiple signals:
+
+- gaze direction and screen position,
+- head pose and face orientation,
+- duration of off-screen or side-glance behavior,
+- frequency of rapid eye movements,
+- keyboard shortcut activity that may indicate outside assistance,
+- and a spatial summary of gaze distribution across the test screen.
+
+This creates a richer behavioral profile than any one metric alone. The final session feature vector is intended to capture both the spatial pattern of attention and the discrete violation events that occur during the session.
+
+3. End-to-End Process
+---------------------
+The project operates in two connected phases:
+
+1. Live monitoring: webcam frames are processed in real time to estimate face, eye, and gaze behavior.
+2. Post-session analysis: recorded session artifacts are converted into numeric features used by the machine-learning model.
+
+The workflow begins when the main tracker process opens the webcam and asks the user to label the session as either non-cheating or cheating. Every session is saved in its own unique directory under the corresponding folder in the sessions/ structure. This folder becomes the unit of analysis for the rest of the pipeline.
+
+During each frame, the system reads the newest camera image, runs face and eye detection, estimates head pose, tracks iris movement, and calculates eye-based gaze. Calibration is critical because the system must determine the subject's center, up, down, left, and right gaze measurements relative to their actual face and eye geometry. These calibrated measurements are smoothed and combined with head-based screen position to estimate a combined screen coordinate and a discrete gaze direction such as Center, Left, Right, Up, or Down.
+
+The gaze direction is then passed to the suspicion scoring component, which tracks suspicious patterns including:
+- prolonged side gaze,
+- prolonged downward gaze,
+- rapid eye movement,
+- off-screen behavior,
+- and unusually high gaze transition frequency.
+
+Keyboard activity is also monitored through global hotkey detection. The system logs suspicious actions such as application switching, clipboard shortcuts, browser behaviors, screenshot tools, and window-closing actions. When a rule is triggered, the system records an event into a session-level CSV file and saves short video evidence with a pre-roll and post-roll. In parallel, gaze points are accumulated into a screen heatmap. At the end of the session, the heatmap is converted into a Gaussian-like intensity map and saved as a PNG image.
+
+The resulting session artifacts are:
+- session_heatmap_<timestamp>.png
+- session_log_<timestamp>.csv
+- optional suspicious-event video clips
+
+These outputs form the basis of the machine-learning pipeline and provide both numerical and visual evidence of suspicious behavior.
+
+4. Machine-Learning Pipeline
+---------------------------
+The machine-learning workflow is session-based. The dataset builder visits each session directory under sessions/cheating and sessions/non_cheating and checks whether the required outputs exist: a heatmap and a suspicion log.
+
+A valid session is transformed into a single row containing:
+- numeric heatmap features,
+- numeric behavioral features,
+- a session ID,
+- and a binary label (1 for cheating, 0 for non-cheating).
+
+The training pipeline proceeds as follows:
+
+1. heatmap_feature_extractor.py reconstructs the intensity map from the saved PNG.
+2. The original heatmap uses the OpenCV JET color map; a lookup table is reconstructed to recover intensity from pixel colors.
+3. The recovered heatmap is summarized into spatial statistics such as centroid, spread, elongation, entropy, peak ratio, coverage ratio, and a normalized 8x8 grid representation.
+4. extract_csv_features.py processes the session log by categorizing violation types and counting events.
+5. The heatmap features and behavioral features are combined into a single feature vector.
+6. The final dataset is written to features.csv.
+7. train_model.py uses the dataset to train a calibrated Random Forest classifier.
+8. Five-fold stratified cross-validation reports accuracy, ROC-AUC, and classification metrics.
+9. The final model is refitted on all data and saved as suspicion_model.joblib.
+10. The exact feature order used during training is saved as feature_columns.json.
+
+Inference is then performed by predict_session.py, which loads the saved model and feature list, extracts features from one session, rebuilds a one-row dataframe in the exact stored feature order, and computes class probabilities. A probability of at least 0.5 is treated as cheating; otherwise, the result is non-cheating. This process supports session-level classification using the same feature ordering used in training, which is critical for consistent deployment and reproducibility.
+
+5. System Architecture and Modules
+----------------------------------
+The system is composed of several modules, each performing a distinct stage in the data flow:
+
+- main_trackerprocess.py: entry point; initializes webcam and processing pipeline.
+- frame_bufferprocessor.py: asynchronous frame acquisition from the camera.
+- face_trackprocessor.py: face detection and landmark tracking using MediaPipe.
+- face_distanceprocessor.py: estimates face-to-camera distance.
+- face_axisprocessor.py: estimates head yaw and pitch and maps them to screen position.
+- eye_trackprocessor.py: isolates and tracks detailed eye geometry.
+- eye_gazeprocessor.py: computes normalized iris position and vertical gaze measures.
+- eye_calibrationprocessor.py: handles multi-stage gaze calibration.
+- eye_screenposprocessor.py: maps eye measurements to screen coordinates and smoothing.
+- gaze_directionprocessor.py: fuses eye and face information into a single gaze estimate.
+- suspicion_scoringprocessor.py: detects suspicious gaze and behavior patterns.
+- heatmap_processor.py: accumulates gaze positions into a heatmap.
+- keypress_trackprocessor.py: monitors suspicious keyboard actions.
+
+The architecture can be summarized as:
+Webcam -> Frame Buffer -> Face and Eye Detection -> Calibration -> Gaze Direction Estimation -> Suspicion Scoring -> Heatmap and Event Logging -> Session-Level Feature Extraction -> Machine Learning Classification.
+
+This structure makes the pipeline modular and research-friendly: each processor handles a specific aspect of the visual analysis, and the final feature extraction stage consolidates all evidence into a standard supervised learning representation.
+
+6. Setup and Operating Requirements
+----------------------------------
+The project requires Python 3.10 or higher and a webcam accessible via OpenCV. It is recommended to run on Windows because the keyboard library relies on global hotkey hooks.
+
+Important project files include:
+- main_trackerprocess.py
+- dataset_builder.py
+- train_model.py
+- predict_session.py
+- heatmap_feature_extractor.py
+- face_trackprocessor.py
+- face_distanceprocessor.py
+- face_axisprocessor.py
+- eye_trackprocessor.py
+- eye_gazeprocessor.py
+- eye_calibrationprocessor.py
+- eye_screenposprocessor.py
+- gaze_directionprocessor.py
+- suspicion_scoringprocessor.py
+- heatmap_processor.py
+- keypress_trackprocessor.py
+- frame_bufferprocessor.py
+- face_landmarker.task
+- requirements.txt
+
+The face_landmarker.task file is essential because MediaPipe face and eye detection depend on it. Missing this file prevents key system functions from operating.
+
+The project recommends using a virtual environment. A typical setup is:
+- python -m venv venv
+- activate the environment
+- pip install -r requirements.txt
+
+The dependency stack is dominated by computer vision and analysis libraries. The main libraries include MediaPipe, OpenCV, NumPy, Matplotlib, Keyboard, SoundDevice, Pillow, Pandas, Scikit-learn, SciPy, and Joblib.
+
+7. Calibration Procedure
+------------------------
+Before the system can reliably estimate gaze, it must be calibrated. The calibration process records eye measurements for a set of target positions:
+- Center
+- Up
+- Down
+- Left
+- Right
+
+The user looks at each target and presses a keyboard key to record samples. Approximately 60 frames are collected per stage and averaged into threshold values. These values are saved to calibration_data.json so the setup does not need to be recalibrated on every run.
+
+The calibration readout contains both eye position and head-pose estimates, which are combined to determine the subject's gaze on a virtual screen. This is critical because field conditions can vary with camera position, lighting, and posture; without calibration, gaze estimation can drift significantly.
+
+The calibration process is therefore not optional technical overhead; it is a direct dependency of the validity of the gaze estimation itself. Any change in camera placement, distance, or user positioning can affect the estimated gaze coordinate if the model is not recalibrated.
+
+8. Suspicion Scoring and Event Logging
+--------------------------------------
+The real-time behavioral analysis engine tracks gaze direction and raises suspicion events when thresholds are exceeded. Default triggers include:
+- looking to the side for more than 3.0 seconds,
+- looking down for more than 5.0 seconds,
+- being off-screen for more than 1.5 seconds,
+- rapid gaze shifts exceeding 6 shifts in 10 seconds.
+
+These are important because they transform raw gaze movement into interpretable violation events. A static gaze vector is not enough for suspicious detection; temporal behavior matters. Prolonged side gaze and repeated transitions often indicate distraction or looking away from the monitored region.
+
+When such events occur, the system logs them with timestamps to a CSV file (session_log_<timestamp>.csv), saves short video clips with a pre-roll and post-roll around the suspicious period, and records suspicious keyboard events. This output serves as the evidence trail for each session and becomes a key part of the behavioral feature extraction stage.
+
+Suspicious keyboard activity is monitored globally through keyboard hooks and includes actions such as Alt+Tab, Ctrl+C/V/X, Windows key combinations, browser shortcuts, Print Screen, screen capture tools, and Alt+F4. These actions are treated as signs of possible outside aid or an attempt to evade monitoring.
+
+9. Heatmap Generation and Gaze Visualization
+--------------------------------------------
+The system accumulates gaze screen-position points across a session and converts them to a heatmap. At the end of the session, the gaze points are blurred and rendered as a color-mapped image, producing a visual summary of where the subject looked most frequently.
+
+The heatmap is a key element of the analysis because it captures the spatial distribution of attention across the screen. A more dispersed or irregular gaze pattern often corresponds to suspicious activity, while a stable and centered pattern is typically associated with normal behavior.
+
+The heatmap-processing pipeline reconstructs intensity from the saved PNG using the JET colormap and then calculates targeted features such as:
+- normalized gaze centroid,
+- horizontal and vertical spread,
+- elongation ratio,
+- entropy,
+- peak ratio,
+- coverage ratio,
+- and a normalized 8x8 spatial grid representation.
+
+The result is a set of numeric descriptors intended to summarize the session's gaze distribution. In practice, these features compress the full visual pattern into a form usable by machine learning while still preserving the relative spatial behavior across the screen.
+
+10. Dataset Observations
+------------------------
+The dataset contains 186 session-level observations and 81 columns. Each row represents one recorded session. The structure includes:
+- 79 predictor variables,
+- a session_id identifier,
+- and a binary label.
+
+The predictor variables consist of:
+- 8 gaze-distribution features,
+- 64 heatmap grid features,
+- and 7 behavioral features.
+
+The behavioral features include:
+- number of frantic eye-movement violations,
+- number of forbidden-key violations,
+- number of off-screen violations,
+- number of duration violations,
+- total number of gaze transitions,
+- percentage of time spent outside the center region,
+- and overall violation rate.
+
+The label distribution is balanced:
+- 93 sessions labeled 0 (non-cheating),
+- 93 sessions labeled 1 (cheating).
+
+This class balance is valuable because it reduces the risk of a model appearing accurate simply by favoring the majority class. The dataset also has no missing values, no duplicate session IDs, and all predictor columns are numeric. Structurally, it is therefore clean and suitable for experimentation.
+
+11. Feature Patterns and Interpretation
+----------------------------------------
+The observed dataset patterns suggest that cheating-labeled sessions show more active and dispersed gaze behavior than non-cheating sessions. Relative to non-cheating sessions, label-1 sessions show:
+- a higher number of gaze transitions,
+- more forbidden-key violations,
+- wider heatmap coverage,
+- higher entropy,
+- lower peak ratio,
+- and more time spent outside the center region.
+
+This suggests that suspicious sessions are associated with greater screen exploration, more unpredictable gaze movements, and a higher incidence of violation events. At the same time, these are correlations, not causal proof. It is possible that some of the observed differences are consequence of labeling, recording conditions, or processing choices rather than evidence of intentional cheating.
+
+Several features are strongly correlated with each other, particularly:
+- entropy and coverage ratio (approximately 0.94),
+- entropy and peak ratio (approximately -0.92),
+- coverage ratio and peak ratio (approximately -0.91).
+
+These relationships are expected because the features describe different aspects of the same underlying gaze-distribution pattern. However, the redundancy can reduce the amount of independent information available to the model and make feature-importance interpretation less reliable.
+
+A few extreme values were also noted, including high elongation ratio and large numbers of transitions and violation counts in some sessions. These may represent genuine unusual behavior, unusually long sessions, calibration issues, or processing artifacts. They should be inspected carefully before making strong conclusions.
+
+12. Model Performance and Validation Narrative
+----------------------------------------------
+The baseline model used in the project is a calibrated Random Forest classifier trained on the session-level features. The project reports the following cross-validated results from five-fold stratified cross-validation:
+
+- Accuracy: 0.909
+- ROC-AUC: 0.974
+
+The classification report showed roughly balanced precision, recall, and F1-score for both classes, with values near 0.91 for each class. This indicates that the current feature set separates the classes reasonably well under the dataset conditions used in the study.
+
+The final model was refit on the full dataset and saved as suspicion_model.joblib, while the exact feature ordering was saved in feature_columns.json. The model is then used at inference time by predict_session.py, which reconstructs a one-row DataFrame in the original feature order and computes class probabilities.
+
+Important caveats remain:
+1. The dataset is small relative to the number of predictors.
+2. Random cross-validation may overestimate performance if multiple sessions come from the same participant.
+3. Violation features may be closely related to the labeling process.
+4. The labels may represent experimental conditions rather than independently verified real-world deception.
+5. Independent validation on unseen participants or future sessions is still required.
+
+For these reasons, the current model should be understood as an exploratory proof of concept rather than a deployed decision-making system. Its performance is promising, but not yet mature enough to justify operational use without additional validation.
+
+13. Interpretation for the Thesis
+---------------------------------
+MAKITEST demonstrates a complete end-to-end system for detecting suspicious exam behavior using gaze, head pose, and keyboard monitoring. The project contributes a practical and technically coherent framework that combines real-time computer vision, event logging, heatmap analysis, and classification.
+
+The system's main research value lies in the combination of behavioral evidence and spatial gaze measures. Instead of relying on a single metric, it synthesizes multiple forms of evidence: where the subject is looking, how frequently they move their gaze, how long they look away, whether they leave the screen, and whether they use suspicious keyboard shortcuts. This composite behavior profile is then summarized in a feature vector and used to infer cheating likelihood.
+
+From a thesis perspective, the project can be framed as an exploratory intelligent proctoring system that demonstrates the feasibility of using gaze tracking and behavioral features to estimate suspicious exam conduct. The dataset and model show promising classification performance, but they also highlight important limitations that are characteristic of early-stage applied AI systems: small sample size, possible participant overlap, feature redundancy, and complex behavioral interpretation.
+
+These limitations should be openly acknowledged in the thesis as part of the methodological rigor. They also suggest clear future work: more data collection, participant-aware validation, feature ablation studies, richer behavioral modeling, and more robust evaluation across unseen participants and sessions.
+
+14. Feature Columns from feature_columns.json
+---------------------------------------------
+The model relies on a fixed feature order stored in feature_columns.json. This order is critical because the same sequence must be used at both training time and inference time.
+
+The exact ordered features are:
+
+1. centroid_x_norm
+2. centroid_y_norm
+3. spread_x
+4. spread_y
+5. elongation_ratio
+6. entropy
+7. peak_ratio
+8. coverage_ratio
+9. grid_cell_0
+10. grid_cell_1
+11. grid_cell_2
+12. grid_cell_3
+13. grid_cell_4
+14. grid_cell_5
+15. grid_cell_6
+16. grid_cell_7
+17. grid_cell_8
+18. grid_cell_9
+19. grid_cell_10
+20. grid_cell_11
+21. grid_cell_12
+22. grid_cell_13
+23. grid_cell_14
+24. grid_cell_15
+25. grid_cell_16
+26. grid_cell_17
+27. grid_cell_18
+28. grid_cell_19
+29. grid_cell_20
+30. grid_cell_21
+31. grid_cell_22
+32. grid_cell_23
+33. grid_cell_24
+34. grid_cell_25
+35. grid_cell_26
+36. grid_cell_27
+37. grid_cell_28
+38. grid_cell_29
+39. grid_cell_30
+40. grid_cell_31
+41. grid_cell_32
+42. grid_cell_33
+43. grid_cell_34
+44. grid_cell_35
+45. grid_cell_36
+46. grid_cell_37
+47. grid_cell_38
+48. grid_cell_39
+49. grid_cell_40
+50. grid_cell_41
+51. grid_cell_42
+52. grid_cell_43
+53. grid_cell_44
+54. grid_cell_45
+55. grid_cell_46
+56. grid_cell_47
+57. grid_cell_48
+58. grid_cell_49
+59. grid_cell_50
+60. grid_cell_51
+61. grid_cell_52
+62. grid_cell_53
+63. grid_cell_54
+64. grid_cell_55
+65. grid_cell_56
+66. grid_cell_57
+67. grid_cell_58
+68. grid_cell_59
+69. grid_cell_60
+70. grid_cell_61
+71. grid_cell_62
+72. grid_cell_63
+73. violation_count_frantic_eye_movement
+74. violation_count_forbidden_key
+75. violation_count_off_screen
+76. violation_count_duration
+77. num_transitions
+78. pct_non_center_time
+79. violation_rate
+
+This fixed ordering makes the model interpretable and reproducible. The first eight features describe gaze distribution; the next 64 describe the normalized heatmap grid; the final seven summarize session-level behavioral violations and transition statistics.
+
+15. Summary of the Overall Contribution
+--------------------------------------
+MAKITEST represents a plausible and technically coherent prototype for intelligent exam monitoring. It merges computer vision, behavior logging, feature engineering, and supervised classification in a single workflow. The project shows that gaze and keyboard behaviors can be translated into a structured feature representation and used to classify suspicious sessions with high cross-validated performance under an exploratory setup.
+
+At the same time, the project does not claim deployment readiness. The design is clearly framed as a research prototype, and the documentation explicitly recognizes the need for stronger validation, larger and more diverse datasets, participant-aware evaluation, and feature ablation studies before the system could be treated as robust, fair, and operationally trustworthy.
+
+This balanced perspective is important for the thesis: the project demonstrates technical feasibility and promising results, while also keeping its claims appropriately cautious. In other words, MAKITEST is not only a system for suspicious behavior detection, but also a concrete demonstration of the strengths and weaknesses of behavioral AI in a high-stakes educational monitoring context.
+
+16. Final Thesis-Style Conclusion
+---------------------------------
+MAKITEST provides an end-to-end framework for suspicious exam behavior detection by combining webcam-based gaze tracking, head-pose estimation, event logging, heatmap analysis, and session-level machine learning. The software captures both spatial and behavioral evidence, turning raw webcam data into a structured feature vector that can distinguish between cheating and non-cheating sessions with encouraging performance in cross-validation.
+
+The project demonstrates that suspicious behavior is not limited to a single indicator but emerges from a combination of gaze distribution, transition behavior, prolonged off-screen patterns, and prohibited keyboard activity. These signals, when aggregated, generate a richer behavioral profile than any isolated metric could provide.
+
+Nevertheless, the dataset and model remain exploratory. The sample size is modest, some features are highly correlated, possible participant overlap may inflate the reported performance, and the labels are derived from experimental conditions rather than fully independent real-world evidence. Future work should therefore prioritize larger and more diverse data collection, better validation protocols, and a more thorough assessment of which features actually drive predictions.
+
+Overall, MAKITEST is a compelling prototype and a strong foundation for further research in intelligent exam monitoring, but its thesis value lies as much in its transparent limitations as in the promising classification results it obtains.
+
+16. violation_rate
+
+These features combine visual gaze distribution and event-based behavior into a single numeric representation for classification.
+
+14. Short Thesis-Friendly Summary
+----------------------------------
+MAKITEST is a webcam-based exam monitoring system that estimates head pose and eye gaze to detect suspicious behavior during examinations. It combines face and eye landmark tracking, gaze calibration, suspicious event scoring, and keyboard activity monitoring into a real-time system that records session evidence and produces heatmap-based features. Those features, together with behavioral violation metrics, are used to build a session-level dataset for binary classification between cheating and non-cheating sessions. The trained Random Forest model achieves high cross-validated performance on the current dataset, but the system remains an exploratory prototype due to sample size, validation limitations, and the need for more rigorous real-world testing.
+
+This document is intended to provide a thesis-ready synthesis of the project and dataset for manuscript writing and methodological discussion.

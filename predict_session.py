@@ -39,6 +39,10 @@ def save_prediction_outputs(session_dir, features, feature_columns, label, confi
         "grid_size": 8,
         "grid_values": grid_values,
         "feature_columns": feature_columns,
+        "feature_values": {
+            column: float(features.get(column, 0.0))
+            for column in feature_columns
+        },
     }
     with open(os.path.join(prediction_dir, "predicted_values.json"), "w", encoding="utf-8") as f:
         json.dump(prediction_values, f, indent=2)

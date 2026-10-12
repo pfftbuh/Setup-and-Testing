@@ -401,6 +401,59 @@ Sessions missing either required artifact are skipped. The output contains
 one row per usable session, with 79 extracted numeric features followed by
 the session metadata columns.
 
+The current feature dataset contains 186 sessions in 81 columns: 79 numeric
+predictors, `session_id`, and `label`. The classes are balanced with 93
+non-cheating sessions and 93 cheating sessions. The dataset currently has no
+missing values or duplicate session IDs.
+
+### Average gaze-direction duration across all testers
+
+The following summaries use all 93 sessions in each class. `Total Duration`
+is the summed duration for a direction, `Normalized Seconds` is that duration
+ divided by the total duration for the class, and `Average Duration per Tester` is
+the total direction duration divided by the 93 testers in that class. Because
+the denominator is the number of testers, this value represents average
+seconds spent in a direction per tester, not the duration of an individual
+transition run.
+
+#### Non-cheating
+
+| Gaze direction | Total Duration (seconds) | Normalized Seconds based on Total | Average Duration per Tester (seconds) |
+|---|---:|---:|---:|
+| Center | 9114.97 | 0.5319 | 98.01 |
+| Down-Right | 265.09 | 0.0155 | 2.85 |
+| Center-Right | 680.70 | 0.0397 | 7.32 |
+| Down-Center | 2607.64 | 0.1522 | 28.04 |
+| Up-Center | 2836.47 | 0.1655 | 30.50 |
+| Up-Right | 372.22 | 0.0217 | 4.00 |
+| Up-Left | 677.19 | 0.0395 | 7.28 |
+| Center-Left | 424.00 | 0.0247 | 4.56 |
+| Down-Left | 158.86 | 0.0093 | 1.71 |
+| **Summary standard deviation** |  |  | **31.03** |
+| **Summary coefficient of variation** |  |  | **1.52** |
+
+#### Cheating
+
+| Gaze direction | Total Duration (seconds) | Normalized Seconds based on Total | Average Duration per Tester (seconds) |
+|---|---:|---:|---:|
+| Center | 7481.27 | 0.2777 | 80.44 |
+| Down-Right | 1207.28 | 0.0448 | 12.98 |
+| Center-Right | 1798.47 | 0.0668 | 19.34 |
+| Down-Center | 5042.07 | 0.1872 | 54.22 |
+| Up-Center | 2899.42 | 0.1076 | 31.18 |
+| Up-Right | 1394.79 | 0.0518 | 15.00 |
+| Up-Left | 2800.20 | 0.1039 | 30.11 |
+| Center-Left | 3096.81 | 0.1150 | 33.30 |
+| Down-Left | 1219.12 | 0.0453 | 13.11 |
+| **Summary standard deviation** |  |  | **22.40** |
+| **Summary coefficient of variation** |  |  | **0.70** |
+
+For a per-violation-type breakdown (off-screen, sustained-direction-duration,
+frantic movement, forbidden key) and a full per-session log summary derived
+directly from every `session_log_*.csv` file, see the "Violation Log
+Breakdown by Type" and "Per-Session Log Summary" tables in
+[`dataset_observations.md`](dataset_observations.md).
+
 ### Train the model
 
 ```bash
@@ -417,6 +470,19 @@ classification report, then saves:
 | `feature_columns.json` | Feature names and the order expected by the model |
 
 Run training again whenever `features.csv` changes.
+
+The current trained artifact was produced from the dataset described above.
+Its stratified five-fold cross-validation results are:
+
+| Metric | Result |
+|---|---:|
+| Cross-validated accuracy | 0.909 |
+| Cross-validated ROC-AUC | 0.974 |
+
+The per-class precision, recall, and F1-scores are approximately 0.90 to
+0.91. These are cross-validated estimates rather than results from an
+independent test set, so participant-level or future-session validation is
+still required before deployment.
 
 ### Predict one session
 
